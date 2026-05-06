@@ -415,40 +415,31 @@ def parse_response(text: str) -> List[Dict]:
 
 
 def load_daily_calls() -> dict:
-    try:
-        with open(config.DAILY_CALLS_FILE, "r") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {"count": 0, "date": ""}
+    """Load daily call count from SQLite (replacing old JSON)."""
+    from modules.db import db
+
+    return {
+        "count": db.get_daily_call_count(),
+        "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+    }
 
 
 def save_daily_calls(data: dict):
-    os.makedirs(config.DATA_DIR, exist_ok=True)
-    with open(config.DAILY_CALLS_FILE, "w") as f:
-        json.dump(data, f)
+    """Save daily call count to SQLite (replacing old JSON)."""
+    pass  # Handled by SQLite now
 
 
 def get_daily_call_count() -> int:
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    data = load_daily_calls()
+    from modules.db import db
 
-    if data.get("date") != today:
-        data = {"count": 0, "date": today}
-        save_daily_calls(data)
-        return 0
-
-    return data.get("count", 0)
+    return db.get_daily_call_count()
 
 
 def increment_daily_calls(count: int = 1):
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    data = load_daily_calls()
+    """Track LLM call in SQLite."""
+    from modules.db import db
 
-    if data.get("date") != today:
-        data = {"count": 0, "date": today}
-
-    data["count"] = data.get("count", 0) + count
-    save_daily_calls(data)
+    db.increment_daily_calls(count)
 
 
 async def summarise_batch_flex(articles, order: List[str] = None) -> List[Dict]:

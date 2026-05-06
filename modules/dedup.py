@@ -1,103 +1,100 @@
-import json
+"""Deduplication engine using SQLite for persistence.
+
+Replaces JSON-based storage with production-grade SQLite
+to prevent state loss on crashes and enable concurrent access.
+"""
 import hashlib
-import os
+import re
 from datetime import datetime
-from typing import List, Dict
+from typing import List
 
 import config
-from modules.fetcher import Article
-
-
-def load_seen_urls() -> Dict[str, str]:
-    try:
-        with open(config.SEEN_URLS_FILE, "r") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
-
-
-def save_seen_urls(seen_urls: Dict[str, str]):
-    os.makedirs(config.DATA_DIR, exist_ok=True)
-
-    if len(seen_urls) > 5000:
-        sorted_urls = sorted(seen_urls.items(), key=lambda x: x[1])
-        seen_urls = dict(sorted_urls[-4000:])
-
-    with open(config.SEEN_URLS_FILE, "w") as f:
-        json.dump(seen_urls, f)
+from modules.db import db
 
 
 def hash_url(url: str) -> str:
-    from urllib.parse import urlparse
+    """Generate a stable hash for a URL."""
+    if not url:
+        return ""
+    return hashlib.md5(url.encode()).hexdigest()
 
-    parsed = urlparse(url)
-    clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-    return hashlib.md5(clean_url.encode()).hexdigest()
+
+class SeenManager:
+    """Production-grade deduplication using SQLite.
+    
+    Replaces JSON files to prevent corruption and enable
+    safe concurrent access from multiple processes.
+    """
+    
+    def __init__(self):
+        self.db = db
+    
+    def is_seen(self, url_hash: str) -> bool:
+        """Check if a URL has been processed."""
+        return self.db.is_seen(url_hash)
+    
+    def mark_seen(self, url_hash: str, url: str = "", source: str = ""):
+        """Mark a URL as processed."""
+        self.db.mark_seen(url_hash, url, source)
+    
+    def filter_new(self, articles: List) -> List:
+        """Return only articles not yet processed."""
+        new_articles = []
+        for article in articles:
+            # Ensure url_hash exists
+            if not hasattr(article, 'url_hash'):
+                article.url_hash = hash_url(article.url)
+            
+            if not self.is_seen(article.url_hash):
+                new_articles.append(article)
+            else:
+                print(f"[Dedup] Skipping duplicate: {getattr(article, 'title', '')[:50]}...")
+        
+        print(f"[Dedup] {len(new_articles)} new of {len(articles)} total")
+        return new_articles
+    
+    def filter_by_keywords(self, articles: List, keywords: List[str] = None) -> List:
+        """Filter articles by AI-relevant keywords."""
+        if keywords is None:
+            keywords = [
+                "ai", "artificial intelligence", "machine learning", "ml",
+                "deep learning", "neural", "gpt", "llm", "language model",
+                "transformer", "openai", "anthropic", "claude", "chatgpt",
+                "sora", "gemini", "mistral", "llama", "stable diffusion",
+                "huggingface", "benchmark", "sota", "agent", "rag",
+            ]
+  
+        filtered = []
+        pattern = re.compile("|".join(keywords), re.IGNORECASE)
+
+        for article in articles:
+            text = f"{getattr(article, 'title', '')} {getattr(article, 'body', '')}"
+            if pattern.search(text):
+                filtered.append(article)
+        
+        print(f"[Dedup] {len(filtered)}/{len(articles)} passed keyword filter")
+        return filtered
+
+
+# Global instance for backward compatibility
+seen_manager = SeenManager()
 
 
 def is_seen(url_hash: str) -> bool:
-    seen_urls = load_seen_urls()
-    return url_hash in seen_urls
+    """Check if a URL hash has been seen."""
+    return seen_manager.is_seen(url_hash)
 
 
 def mark_seen(url_hash: str):
-    seen_urls = load_seen_urls()
-    seen_urls[url_hash] = datetime.utcnow().isoformat()
-    save_seen_urls(seen_urls)
+    """Mark a URL hash as seen."""
+    seen_manager.mark_seen(url_hash)
 
 
-def filter_new(articles: List[Article]) -> List[Article]:
-    seen_urls = load_seen_urls()
-    new_articles = []
-
-    for article in articles:
-        if article.url_hash not in seen_urls:
-            new_articles.append(article)
-        else:
-            pass
-
-    return new_articles
+def filter_new(articles: List) -> List:
+    """Filter out already-seen articles."""
+    return seen_manager.filter_new(articles)
 
 
-def filter_by_keywords(
-    articles: List[Article], keywords: List[str] = None
-) -> List[Article]:
-    if keywords is None:
-        keywords = [
-            "ai",
-            "artificial intelligence",
-            "machine learning",
-            "ml",
-            "deep learning",
-            "neural",
-            "gpt",
-            "llm",
-            "language model",
-            "transformer",
-            "openai",
-            "anthropic",
-            "claude",
-            "chatgpt",
-            "sora",
-            "gemma",
-            "mistral",
-            "llama",
-            "Stable Diffusion",
-            "hugging face",
-            "model",
-            "benchmark",
-            "sota",
-            "arxiv",
-        ]
-
-    import re
-
-    filtered = []
-    pattern = re.compile("|".join(keywords), re.IGNORECASE)
-
-    for article in articles:
-        text = f"{article.title} {article.body}"
-        if pattern.search(text):
-            filtered.append(article)
-
-    return filtered
+def filter_by_keywords(articles: List, keywords: List[str] = None) -> List:
+    """Filter articles by keywords."""
+    return seen_manager.filter_by_keywords(articles, keywords)

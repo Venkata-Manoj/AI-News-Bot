@@ -3,8 +3,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# ========== TELEGRAM ==========
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+
+# ========== APIFY (for X/Twitter and Reddit) ==========
+APIFY_API_KEY = os.getenv("APIFY_API_KEY", "")
 
 # ========== LLM PROVIDERS ==========
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
@@ -31,38 +35,41 @@ LLM_PROVIDER_ORDER = os.getenv(
 
 # ========== SOURCE OPTIONS ==========
 ENABLE_RSS = os.getenv("ENABLE_RSS", "true").lower() == "true"
+ENABLE_APIFY_TWITTER = os.getenv("ENABLE_APIFY_TWITTER", "false").lower() == "true"
+ENABLE_APIFY_REDDIT = os.getenv("ENABLE_APIFY_REDDIT", "false").lower() == "true"
 ENABLE_HN = os.getenv("ENABLE_HN", "true").lower() == "true"
 ENABLE_ARXIV = os.getenv("ENABLE_ARXIV", "true").lower() == "true"
 ENABLE_GITHUB = os.getenv("ENABLE_GITHUB", "false").lower() == "true"
 
+# Fetch options (used by dispatcher)
 FETCH_OPTIONS = {
     "rss": ENABLE_RSS,
+    "apify_twitter": ENABLE_APIFY_TWITTER,
+    "apify_reddit": ENABLE_APIFY_REDDIT,
     "hn": ENABLE_HN,
     "arxiv": ENABLE_ARXIV,
     "github": ENABLE_GITHUB,
 }
 
-# ========== RSS FEEDS ==========
+# ========== RSS FEEDS (21+ sources) ==========
 RSS_FEEDS = [
-    # Top AI Labs & Companies (Priority)
+    # Top AI Labs & Companies
     "https://openai.com/blog/rss.xml",  # OpenAI
     "https://www.anthropic.com/rss.xml",  # Anthropic
     "https://blog.google/technology/ai/rss/",  # Google AI
     "https://huggingface.co/blog/feed.xml",  # HuggingFace
     "https://mistral.ai/news/feed.xml",  # Mistral AI
-    # More AI Companies
     "https://nv-blogs.s3.amazonaws.com/rss.xml",  # NVIDIA
     "https://about.meta.com/blog/rss/",  # Meta AI
-    "https://x.ai/blog/rss",  # Grok (xAI)
+    "https://x.ai/blog/rss",  # xAI (Grok)
     "https://stability.ai/news/feed.xml",  # Stability AI
     "https://cohere.com/blog/rss.xml",  # Cohere
     "https://deepmind.google/blog/rss",  # DeepMind
-    "https://ai.meta.com/blog/feed/",  # Meta AI
     # Tech News
     "https://techcrunch.com/category/artificial-intelligence/feed/",
     "https://venturebeat.com/category/ai/feed/",
     "https://www.theverge.com/ai-artificial-intelligence/rss/index.xml",
-    # Science & Research
+    # Research
     "https://www.technologyreview.com/feed/",
     "https://www.wired.com/feed/tag/ai/latest/rss",
     "https://feeds.arstechnica.com/arstechnica/index",
@@ -70,20 +77,29 @@ RSS_FEEDS = [
     "https://the-decoder.com/feed/",
 ]
 
+# ========== APIFY TARGETS ==========
+TWITTER_ACCOUNTS = os.getenv(
+    "TWITTER_ACCOUNTS", "sama,elonmusk,satyanadella,ylecun"
+).split(",")
+REDDIT_SUBREDDITS = os.getenv(
+    "REDDIT_SUBREDDITS", "MachineLearning,artificial,OpenAI"
+).split(",")
+
 # ========== HACKER NEWS ==========
 HN_TAG = os.getenv("HN_TAG", "ai")
 
 # ========== ARXIV CATEGORIES ==========
 ARXIV_CATEGORIES = ["cs.AI", "cs.LG", "cs.CL", "cs.CV", "stat.ML"]
 
-# ========== SETTINGS ==========
+# ========== SCHEDULING & PERFORMANCE ==========
 FETCH_INTERVAL_MINUTES = int(os.getenv("FETCH_INTERVAL_MINUTES", "30"))
-MIN_RELEVANCE_SCORE = int(os.getenv("MIN_RELEVANCE_SCORE", "6"))
+MAX_LATENCY_SECONDS = int(os.getenv("MAX_LATENCY_SECONDS", "60"))
+MIN_THROUGHPUT = int(os.getenv("MIN_THROUGHPUT", "1"))  # messages per minute target
 BATCH_SIZE = int(os.getenv("BATCH_SIZE", "5"))
 MAX_ARTICLES_PER_RUN = int(os.getenv("MAX_ARTICLES_PER_RUN", "10"))
+MIN_RELEVANCE_SCORE = int(os.getenv("MIN_RELEVANCE_SCORE", "5"))
 
+# ========== PATHS ==========
 DATA_DIR = "data"
 LOG_DIR = "logs"
-SEEN_URLS_FILE = f"{DATA_DIR}/seen_urls.json"
-DAILY_CALLS_FILE = f"{DATA_DIR}/daily_calls.json"
 LOG_FILE = f"{LOG_DIR}/run.log"
