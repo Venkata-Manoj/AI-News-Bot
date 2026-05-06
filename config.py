@@ -1,0 +1,89 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+
+# ========== LLM PROVIDERS ==========
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
+
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "google/gemma-4-31b-it:free")
+
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+
+NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "")
+NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "nvidia/llama-3.1-nemotron-70b-instruct")
+
+OLLAMA_ENDPOINT = os.getenv("OLLAMA_ENDPOINT", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1")
+
+LMSTUDIO_ENDPOINT = os.getenv("LMSTUDIO_ENDPOINT", "http://localhost:1234/v1")
+LMSTUDIO_MODEL = os.getenv("LMSTUDIO_MODEL", "llama-3.1-8b-instruct")
+
+LLM_PROVIDER_ORDER = os.getenv(
+    "LLM_PROVIDER_ORDER", "gemini,nvidia,openrouter,groq,ollama,lmstudio"
+).split(",")
+
+# ========== SOURCE OPTIONS ==========
+ENABLE_RSS = os.getenv("ENABLE_RSS", "true").lower() == "true"
+ENABLE_HN = os.getenv("ENABLE_HN", "true").lower() == "true"
+ENABLE_ARXIV = os.getenv("ENABLE_ARXIV", "true").lower() == "true"
+ENABLE_GITHUB = os.getenv("ENABLE_GITHUB", "false").lower() == "true"
+
+FETCH_OPTIONS = {
+    "rss": ENABLE_RSS,
+    "hn": ENABLE_HN,
+    "arxiv": ENABLE_ARXIV,
+    "github": ENABLE_GITHUB,
+}
+
+# ========== RSS FEEDS ==========
+RSS_FEEDS = [
+    # Top AI Labs & Companies (Priority)
+    "https://openai.com/blog/rss.xml",  # OpenAI
+    "https://www.anthropic.com/rss.xml",  # Anthropic
+    "https://blog.google/technology/ai/rss/",  # Google AI
+    "https://huggingface.co/blog/feed.xml",  # HuggingFace
+    "https://mistral.ai/news/feed.xml",  # Mistral AI
+    # More AI Companies
+    "https://nv-blogs.s3.amazonaws.com/rss.xml",  # NVIDIA
+    "https://about.meta.com/blog/rss/",  # Meta AI
+    "https://x.ai/blog/rss",  # Grok (xAI)
+    "https://stability.ai/news/feed.xml",  # Stability AI
+    "https://cohere.com/blog/rss.xml",  # Cohere
+    "https://deepmind.google/blog/rss",  # DeepMind
+    "https://ai.meta.com/blog/feed/",  # Meta AI
+    # Tech News
+    "https://techcrunch.com/category/artificial-intelligence/feed/",
+    "https://venturebeat.com/category/ai/feed/",
+    "https://www.theverge.com/ai-artificial-intelligence/rss/index.xml",
+    # Science & Research
+    "https://www.technologyreview.com/feed/",
+    "https://www.wired.com/feed/tag/ai/latest/rss",
+    "https://feeds.arstechnica.com/arstechnica/index",
+    "https://www.marktechpost.com/feed/",
+    "https://the-decoder.com/feed/",
+]
+
+# ========== HACKER NEWS ==========
+HN_TAG = os.getenv("HN_TAG", "ai")
+
+# ========== ARXIV CATEGORIES ==========
+ARXIV_CATEGORIES = ["cs.AI", "cs.LG", "cs.CL", "cs.CV", "stat.ML"]
+
+# ========== SETTINGS ==========
+FETCH_INTERVAL_MINUTES = int(os.getenv("FETCH_INTERVAL_MINUTES", "30"))
+MIN_RELEVANCE_SCORE = int(os.getenv("MIN_RELEVANCE_SCORE", "6"))
+BATCH_SIZE = int(os.getenv("BATCH_SIZE", "5"))
+MAX_ARTICLES_PER_RUN = int(os.getenv("MAX_ARTICLES_PER_RUN", "10"))
+
+DATA_DIR = "data"
+LOG_DIR = "logs"
+SEEN_URLS_FILE = f"{DATA_DIR}/seen_urls.json"
+DAILY_CALLS_FILE = f"{DATA_DIR}/daily_calls.json"
+LOG_FILE = f"{LOG_DIR}/run.log"
