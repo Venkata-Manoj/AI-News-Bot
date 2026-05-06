@@ -35,8 +35,8 @@ LLM_PROVIDER_ORDER = os.getenv(
 
 # ========== SOURCE OPTIONS ==========
 ENABLE_RSS = os.getenv("ENABLE_RSS", "true").lower() == "true"
-ENABLE_APIFY_TWITTER = os.getenv("ENABLE_APIFY_TWITTER", "false").lower() == "true"
-ENABLE_APIFY_REDDIT = os.getenv("ENABLE_APIFY_REDDIT", "false").lower() == "true"
+ENABLE_APIFY_TWITTER = os.getenv("ENABLE_APIFY_TWITTER", "true").lower() == "true"
+ENABLE_APIFY_REDDIT = os.getenv("ENABLE_APIFY_REDDIT", "true").lower() == "true"
 ENABLE_HN = os.getenv("ENABLE_HN", "true").lower() == "true"
 ENABLE_ARXIV = os.getenv("ENABLE_ARXIV", "true").lower() == "true"
 ENABLE_GITHUB = os.getenv("ENABLE_GITHUB", "false").lower() == "true"

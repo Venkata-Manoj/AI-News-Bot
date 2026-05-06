@@ -164,7 +164,7 @@ def setup_scheduler():
     """Configure APScheduler for periodic execution."""
     scheduler = AsyncIOScheduler()
 
-    # Primary pipeline job
+    # Primary pipeline job (includes Apify now via fetcher.fetch_all)
     scheduler.add_job(
         run_pipeline,
         "interval",
@@ -174,18 +174,6 @@ def setup_scheduler():
         next_run_time=datetime.utcnow(),
         replace_existing=True,
     )
-
-    # Apify-specific runner (if enabled)
-    if FETCH_OPTIONS.get("apify_twitter") or FETCH_OPTIONS.get("apify_reddit"):
-        scheduler.add_job(
-            run_apify_only,
-            "interval",
-            minutes=max(5, FETCH_INTERVAL_MINUTES),  # Run Apify less frequently
-            id="apify_fetcher",
-            name="apify_only",
-            next_run_time=datetime.utcnow(),
-            replace_existing=True,
-        )
 
     scheduler.start()
     logger.info(

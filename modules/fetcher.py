@@ -193,16 +193,84 @@ async def fetch_all(options: dict = None) -> List[Article]:
         options = config.FETCH_OPTIONS
     articles = []
     tasks = []
+
     if options.get("rss", True):
         tasks.append(fetch_all_rss(config.RSS_FEEDS))
     if options.get("hn", True):
         tasks.append(fetch_hackernews("ai", 10))
     if options.get("arxiv", True):
         tasks.append(fetch_arxiv(["cs.AI", "cs.LG", "cs.CL"], 10))
+
+    # Apify: Twitter + Reddit
+    if options.get("apify_twitter") or options.get("apify_reddit"):
+        tasks.append(fetch_apify_sources(options))
+
     results = await asyncio.gather(*tasks, return_exceptions=True)
     for result in results:
         if isinstance(result, list):
             articles.extend(result)
     articles.sort(key=lambda a: (a.score or 0, a.published), reverse=True)
     print(f"[Total] Fetched {len(articles)} articles from all sources")
+    return articles
+
+
+async def fetch_apify_sources(options: dict) -> List[Article]:
+    """Fetch from Apify (Twitter + Reddit)."""
+    articles = []
+
+    if not config.APIFY_API_KEY:
+        print("[Apify] API key not set, skipping...")
+        return articles
+
+    try:
+        from modules.apify_fetcher import ApifyFetcher
+
+        async with ApifyFetcher() as fetcher:
+            if options.get("apify_twitter"):
+                try:
+                    tweets = await fetcher.fetch_twitter(config.TWITTER_ACCOUNTS)
+                    for tweet in tweets:
+                        articles.append(
+                            Article(
+                                title=tweet.get("text", "")[:100],
+                                url=tweet.get("url", ""),
+                                body=tweet.get("text", ""),
+                                source="twitter",
+                                published=datetime.fromisoformat(
+                                    tweet.get(
+                                        "timestamp", datetime.utcnow().isoformat()
+                                    )
+                                )
+                                if tweet.get("timestamp")
+                                else datetime.utcnow(),
+                            )
+                        )
+                    print(f"[Apify] Twitter: {len(tweets)} relevant tweets")
+                except Exception as e:
+                    print(f"[Apify] Twitter error: {e}")
+
+            if options.get("apify_reddit"):
+                try:
+                    posts = await fetcher.fetch_reddit(config.REDDIT_SUBREDDITS)
+                    for post in posts:
+                        articles.append(
+                            Article(
+                                title=post.get("title", "")[:100],
+                                url=post.get("url", ""),
+                                body=post.get("body", "") or post.get("text", ""),
+                                source=f"r/{post.get('subreddit', 'unknown')}",
+                                published=datetime.fromisoformat(
+                                    post.get("created", datetime.utcnow().isoformat())
+                                )
+                                if post.get("created")
+                                else datetime.utcnow(),
+                            )
+                        )
+                    print(f"[Apify] Reddit: {len(posts)} relevant posts")
+                except Exception as e:
+                    print(f"[Apify] Reddit error: {e}")
+
+    except Exception as e:
+        print(f"[Apify] Fetch error: {e}")
+
     return articles
