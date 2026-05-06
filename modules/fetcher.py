@@ -201,9 +201,9 @@ async def fetch_all(options: dict = None) -> List[Article]:
     if options.get("arxiv", True):
         tasks.append(fetch_arxiv(["cs.AI", "cs.LG", "cs.CL"], 10))
 
-    # Apify: Twitter + Reddit
+    # Twitter + Reddit (direct scraping, no API key needed)
     if options.get("apify_twitter") or options.get("apify_reddit"):
-        tasks.append(fetch_apify_sources(options))
+        tasks.append(fetch_social_sources(options))
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
     for result in results:
@@ -214,63 +214,61 @@ async def fetch_all(options: dict = None) -> List[Article]:
     return articles
 
 
-async def fetch_apify_sources(options: dict) -> List[Article]:
-    """Fetch from Apify (Twitter + Reddit)."""
+async def fetch_social_sources(options: dict) -> List[Article]:
+    """Fetch from Twitter (Nitter RSS) + Reddit (direct API) - no API key needed."""
     articles = []
 
-    if not config.APIFY_API_KEY:
-        print("[Apify] API key not set, skipping...")
-        return articles
-
     try:
-        from modules.apify_fetcher import ApifyFetcher
+        from modules.apify_fetcher import DirectFetcher, is_ai_related
 
-        async with ApifyFetcher() as fetcher:
+        async with DirectFetcher() as fetcher:
             if options.get("apify_twitter"):
                 try:
                     tweets = await fetcher.fetch_twitter(config.TWITTER_ACCOUNTS)
                     for tweet in tweets:
-                        articles.append(
-                            Article(
-                                title=tweet.get("text", "")[:100],
-                                url=tweet.get("url", ""),
-                                body=tweet.get("text", ""),
-                                source="twitter",
-                                published=datetime.fromisoformat(
-                                    tweet.get(
-                                        "timestamp", datetime.utcnow().isoformat()
-                                    )
+                        text = tweet.get("text", "")
+                        if is_ai_related(text):
+                            articles.append(
+                                Article(
+                                    title=text[:100],
+                                    url=tweet.get("url", ""),
+                                    body=text,
+                                    source="twitter",
+                                    published=datetime.utcnow(),
                                 )
-                                if tweet.get("timestamp")
-                                else datetime.utcnow(),
                             )
-                        )
-                    print(f"[Apify] Twitter: {len(tweets)} relevant tweets")
+                    print(
+                        f"[Twitter] Fetched {len([a for a in articles if a.source == 'twitter'])} AI-related tweets"
+                    )
                 except Exception as e:
-                    print(f"[Apify] Twitter error: {e}")
+                    print(f"[Twitter] Error: {e}")
 
             if options.get("apify_reddit"):
                 try:
                     posts = await fetcher.fetch_reddit(config.REDDIT_SUBREDDITS)
                     for post in posts:
-                        articles.append(
-                            Article(
-                                title=post.get("title", "")[:100],
-                                url=post.get("url", ""),
-                                body=post.get("body", "") or post.get("text", ""),
-                                source=f"r/{post.get('subreddit', 'unknown')}",
-                                published=datetime.fromisoformat(
-                                    post.get("created", datetime.utcnow().isoformat())
+                        text = post.get("title", "") + " " + post.get("body", "")
+                        if is_ai_related(text):
+                            articles.append(
+                                Article(
+                                    title=post.get("title", "")[:100],
+                                    url=post.get("url", ""),
+                                    body=post.get("body", ""),
+                                    source=f"r/{post.get('subreddit', 'unknown')}",
+                                    published=datetime.utcfromtimestamp(
+                                        post.get("created", 0)
+                                    )
+                                    if post.get("created")
+                                    else datetime.utcnow(),
                                 )
-                                if post.get("created")
-                                else datetime.utcnow(),
                             )
-                        )
-                    print(f"[Apify] Reddit: {len(posts)} relevant posts")
+                    print(
+                        f"[Reddit] Fetched {len([a for a in articles if a.source.startswith('r/')])} AI-related posts"
+                    )
                 except Exception as e:
-                    print(f"[Apify] Reddit error: {e}")
+                    print(f"[Reddit] Error: {e}")
 
     except Exception as e:
-        print(f"[Apify] Fetch error: {e}")
+        print(f"[Social] Fetch error: {e}")
 
     return articles
