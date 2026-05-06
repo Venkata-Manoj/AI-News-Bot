@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 
 def escape_md(text: str) -> str:
@@ -26,9 +26,7 @@ def format_article(article, summary: str) -> str:
     )
 
     # IST timestamp
-    from datetime import datetime, timezone
-
-    ist_offset = timezone(datetime.timedelta(hours=5, minutes=30))
+    ist_offset = timezone(timedelta(hours=5, minutes=30))
     ist_now = datetime.now(ist_offset)
     timestamp = ist_now.strftime("%H:%M IST")
 
