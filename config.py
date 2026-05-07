@@ -34,8 +34,10 @@ LLM_PROVIDER_ORDER = os.getenv(
 ).split(",")
 
 # ========== SOURCE OPTIONS ==========
+# Twitter RSS is unreliable (most Nitter instances block RSS) - set to true if you want to try
 ENABLE_RSS = os.getenv("ENABLE_RSS", "true").lower() == "true"
-ENABLE_APIFY_TWITTER = os.getenv("ENABLE_APIFY_TWITTER", "true").lower() == "true"
+ENABLE_APIFY_TWITTER = os.getenv("ENABLE_APIFY_TWITTER", "false").lower() == "true"
+# Reddit via direct JSON API is reliable
 ENABLE_APIFY_REDDIT = os.getenv("ENABLE_APIFY_REDDIT", "true").lower() == "true"
 ENABLE_HN = os.getenv("ENABLE_HN", "true").lower() == "true"
 ENABLE_ARXIV = os.getenv("ENABLE_ARXIV", "true").lower() == "true"
@@ -95,7 +97,7 @@ ARXIV_CATEGORIES = ["cs.AI", "cs.LG", "cs.CL", "cs.CV", "stat.ML"]
 FETCH_INTERVAL_MINUTES = int(os.getenv("FETCH_INTERVAL_MINUTES", "30"))
 MAX_LATENCY_SECONDS = int(os.getenv("MAX_LATENCY_SECONDS", "60"))
 MIN_THROUGHPUT = int(os.getenv("MIN_THROUGHPUT", "1"))  # messages per minute target
-BATCH_SIZE = int(os.getenv("BATCH_SIZE", "5"))
+BATCH_SIZE = int(os.getenv("BATCH_SIZE", "3"))  # Lowered to conserve LLM quota
 MAX_ARTICLES_PER_RUN = int(os.getenv("MAX_ARTICLES_PER_RUN", "10"))
 MIN_RELEVANCE_SCORE = int(os.getenv("MIN_RELEVANCE_SCORE", "5"))
 

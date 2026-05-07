@@ -113,7 +113,8 @@ def build_prompt(articles) -> str:
     return "\n\n".join(user_parts)
 
 
-async def call_gemini(prompt: str, retries: int = 3) -> Optional[str]:
+async def call_gemini(prompt: str, retries: int = 1) -> Optional[str]:
+    """Call Gemini - on quota error, raise immediately so fallback can try next provider."""
     import google.generativeai as genai
 
     provider = _providers.get("gemini")
@@ -123,25 +124,28 @@ async def call_gemini(prompt: str, retries: int = 3) -> Optional[str]:
     genai.configure(api_key=provider.api_key)
     model = genai.GenerativeModel(provider.model)
 
-    for attempt in range(retries):
-        try:
-            response = model.generate_content(
-                [SYSTEM_PROMPT, prompt],
-                generation_config={"temperature": 0.3, "max_output_tokens": 2048},
-            )
-            increment_daily_calls(1)
-            return response.text
-        except Exception as e:
-            print(f"[Gemini] Error (attempt {attempt + 1}): {e}")
-            if "429" in str(e) or "quota" in str(e).lower():
-                await asyncio.sleep(12 * (2**attempt))
-            else:
-                break
+    try:
+        response = model.generate_content(
+            [SYSTEM_PROMPT, prompt],
+            generation_config={"temperature": 0.3, "max_output_tokens": 2048},
+        )
+        increment_daily_calls(1)
+        return response.text
+    except Exception as e:
+        error_str = str(e)
+        print(f"[Gemini] Error: {error_str[:100]}...")
+        # Immediately raise on quota errors so fallback can work
+        if (
+            "429" in error_str
+            or "quota" in error_str.lower()
+            or "rate limit" in error_str.lower()
+        ):
+            raise Exception(f"QUOTA_EXCEEDED: {error_str}")
+        return None
 
-    return None
 
-
-async def call_openrouter(prompt: str, retries: int = 3) -> Optional[str]:
+async def call_openrouter(prompt: str) -> Optional[str]:
+    """Call OpenRouter - on any error, raise so fallback works."""
     provider = _providers.get("openrouter")
     if not provider or not provider.available:
         return None
@@ -161,29 +165,23 @@ async def call_openrouter(prompt: str, retries: int = 3) -> Optional[str]:
         "max_tokens": 2048,
     }
 
-    for attempt in range(retries):
-        try:
-            async with httpx.AsyncClient(timeout=60) as client:
-                resp = await client.post(
-                    provider.endpoint, headers=headers, json=payload
-                )
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(
+                provider.endpoint, headers=headers, json=payload
+            )
 
-                if resp.status_code == 200:
-                    data = resp.json()
-                    increment_daily_calls(1)
-                    return data["choices"][0]["message"]["content"]
-                elif resp.status_code == 429:
-                    print(f"[OpenRouter] Rate limited, retry {attempt + 1}")
-                    wait_time = 12 * (2**attempt)
-                    await asyncio.sleep(wait_time)
-                else:
-                    print(f"[OpenRouter] Error: {resp.status_code} - {resp.text[:100]}")
-                    break
-        except asyncio.CancelledError:
-            print(f"[OpenRouter] Interrupted, skipping")
-            raise
-        except Exception as e:
-            print(f"[OpenRouter] Error (attempt {attempt + 1}): {e}")
+            if resp.status_code == 200:
+                data = resp.json()
+                increment_daily_calls(1)
+                return data["choices"][0]["message"]["content"]
+            elif resp.status_code == 429:
+                raise Exception(f"QUOTA_EXCEEDED: OpenRouter rate limited")
+            else:
+                raise Exception(f"OpenRouter error: {resp.status_code} - {resp.text[:100]}")
+    except asyncio.CancelledError:
+        raise
+
 
     return None
 
@@ -366,19 +364,38 @@ async def call_with_fallback(prompt: str, order: List[str] = None) -> Optional[s
 
     last_error = None
     for provider_name in order:
-        if provider_name in _PROVIDER_FUNCTIONS:
-            print(f"[LLM] Trying {provider_name}...")
-            try:
-                func = _PROVIDER_FUNCTIONS[provider_name]
-                result = await func(prompt)
-                if result:
-                    return result
-            except asyncio.CancelledError:
-                print(f"[LLM] {provider_name} interrupted")
-                raise
-            except Exception as e:
-                last_error = e
-                print(f"[LLM] {provider_name} failed: {e}")
+        if provider_name not in _PROVIDER_FUNCTIONS:
+            continue
+
+        provider = _providers.get(provider_name)
+        if not provider or not provider.available:
+            print(f"[LLM] {provider_name} not available (no API key)")
+            continue
+
+        print(f"[LLM] Trying {provider_name}...")
+        try:
+            func = _PROVIDER_FUNCTIONS[provider_name]
+            result = await func(prompt)
+            if result:
+                return result
+        except asyncio.CancelledError:
+            print(f"[LLM] {provider_name} interrupted")
+            raise
+        except Exception as e:
+            error_str = str(e)
+            last_error = e
+
+            # Check for quota errors (429) - immediately try next provider
+            if (
+                "429" in error_str
+                or "quota" in error_str.lower()
+                or "rate limit" in error_str.lower()
+                or "QUOTA_EXCEEDED" in error_str
+            ):
+                print(f"[LLM] {provider_name} quota exceeded, trying next provider...")
+                continue
+
+            print(f"[LLM] {provider_name} failed: {e}")
 
     print(f"[LLM] All providers failed. Last error: {last_error}")
     return None

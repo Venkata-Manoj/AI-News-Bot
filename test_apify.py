@@ -16,21 +16,17 @@ async def test_twitter():
     print("=" * 50)
 
     try:
-        tweets = await apify_fetcher.fetch_twitter_posts(config.TWITTER_ACCOUNTS)
+        tweets = await apify_fetcher.fetch_twitter(config.TWITTER_ACCOUNTS)
         print(f"✅ Fetched {len(tweets)} tweets")
 
-        if tweets:
-            for i, tweet in enumerate(tweets[:5], 1):
-                print(f"\n--- Tweet {i} ---")
-                print(f"Text: {tweet.get('text', '')[:150]}...")
-                print(f"URL: {tweet.get('url', 'N/A')}")
-                print(f"User: {tweet.get('username', 'N/A')}")
-        else:
-            print("⚠️ No tweets returned")
+        for i, tweet in enumerate(tweets[:3], 1):
+            print(f"\n--- Tweet {i} ---")
+            print(f"Text: {tweet.get('text', '')[:100]}...")
+            print(f"URL: {tweet.get('url', 'N/A')}")
 
         return tweets
     except Exception as e:
-        print(f"❌ Twitter fetch failed: {e}")
+        print(f"❌ Twitter failed: {e}")
         import traceback
 
         traceback.print_exc()
@@ -44,65 +40,57 @@ async def test_reddit():
     print("=" * 50)
 
     try:
-        posts = await apify_fetcher.fetch_reddit_posts(config.REDDIT_SUBREDDITS)
+        posts = await apify_fetcher.fetch_reddit(config.REDDIT_SUBREDDITS)
         print(f"✅ Fetched {len(posts)} posts")
 
-        if posts:
-            for i, post in enumerate(posts[:5], 1):
-                print(f"\n--- Post {i} ---")
-                print(f"Title: {post.get('title', '')[:100]}...")
-                print(f"Subreddit: r/{post.get('subreddit', 'N/A')}")
-                print(f"URL: {post.get('url', 'N/A')}")
-                print(f"Score: {post.get('score', 'N/A')}")
-        else:
-            print("⚠️ No posts returned")
+        for i, post in enumerate(posts[:3], 1):
+            print(f"\n--- Post {i} ---")
+            print(f"Title: {post.get('title', '')[:80]}...")
+            print(f"Subreddit: {post.get('source', 'N/A')}")
+            print(f"URL: {post.get('url', 'N/A')}")
 
         return posts
     except Exception as e:
-        print(f"❌ Reddit fetch failed: {e}")
+        print(f"❌ Reddit failed: {e}")
         import traceback
 
         traceback.print_exc()
         return []
 
 
-async def test_direct_fetcher():
-    """Test the DirectFetcher class directly."""
+async def test_ai_filter():
+    """Test AI content filter."""
     print("\n" + "=" * 50)
-    print("Testing DirectFetcher class")
+    print("Testing AI Content Filter")
     print("=" * 50)
 
-    async with apify_fetcher.DirectFetcher() as fetcher:
-        # Test Twitter
-        print("\n--- Twitter ---")
-        try:
-            tweets = await fetcher.fetch_twitter(["sama", "elonmusk"])
-            print(f"✅ {len(tweets)} tweets")
-        except Exception as e:
-            print(f"❌ {e}")
+    test_cases = [
+        ("Just released GPT-5!", True),
+        ("Beautiful sunset today", False),
+        ("New ML model beats SOTA", True),
+        ("Dinner at 7pm", False),
+        ("OpenAI announces new LLM", True),
+    ]
 
-        # Test Reddit
-        print("\n--- Reddit ---")
-        try:
-            posts = await fetcher.fetch_reddit(["MachineLearning", "artificial"])
-            print(f"✅ {len(posts)} posts")
-        except Exception as e:
-            print(f"❌ {e}")
+    for text, expected in test_cases:
+        result = apify_fetcher.is_ai_related(text)
+        status = "✅" if result == expected else "❌"
+        print(f"{status} '{text[:30]}...' -> {result}")
 
 
 async def main():
     print("=" * 50)
-    print("Twitter + Reddit Scraper Test")
-    print("(Direct scraping - no API key needed)")
+    print("Social Media Scraper Test")
+    print("(Twitter RSS + Reddit JSON API)")
     print("=" * 50)
 
-    print(f"\nTwitter accounts: {config.TWITTER_ACCOUNTS}")
-    print(f"Reddit subreddits: {config.REDDIT_SUBREDDITS}")
+    print(f"\nTwitter: {config.TWITTER_ACCOUNTS}")
+    print(f"Reddit: {config.REDDIT_SUBREDDITS}")
 
-    # Test DirectFetcher class
-    await test_direct_fetcher()
+    # Test AI filter
+    await test_ai_filter()
 
-    # Test convenience functions
+    # Test fetchers
     tweets = await test_twitter()
     posts = await test_reddit()
 
@@ -116,8 +104,6 @@ async def main():
 
     if tweets + posts:
         print("\n✅ Social media integration working!")
-    else:
-        print("\n❌ No data - check errors above")
 
 
 if __name__ == "__main__":

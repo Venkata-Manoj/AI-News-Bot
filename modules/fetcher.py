@@ -219,54 +219,49 @@ async def fetch_social_sources(options: dict) -> List[Article]:
     articles = []
 
     try:
-        from modules.apify_fetcher import DirectFetcher, is_ai_related
+        from modules import apify_fetcher
 
-        async with DirectFetcher() as fetcher:
-            if options.get("apify_twitter"):
-                try:
-                    tweets = await fetcher.fetch_twitter(config.TWITTER_ACCOUNTS)
-                    for tweet in tweets:
-                        text = tweet.get("text", "")
-                        if is_ai_related(text):
-                            articles.append(
-                                Article(
-                                    title=text[:100],
-                                    url=tweet.get("url", ""),
-                                    body=text,
-                                    source="twitter",
-                                    published=datetime.utcnow(),
-                                )
-                            )
-                    print(
-                        f"[Twitter] Fetched {len([a for a in articles if a.source == 'twitter'])} AI-related tweets"
+        # Twitter - fetch via Nitter RSS (unreliable)
+        if options.get("apify_twitter"):
+            try:
+                tweets = await apify_fetcher.fetch_twitter(config.TWITTER_ACCOUNTS)
+                for tweet in tweets:
+                    articles.append(
+                        Article(
+                            title=tweet.get("text", "")[:100],
+                            url=tweet.get("url", ""),
+                            body=tweet.get("text", ""),
+                            source="twitter",
+                            published=datetime.utcnow(),
+                        )
                     )
-                except Exception as e:
-                    print(f"[Twitter] Error: {e}")
+                print(
+                    f"[Twitter] Fetched {len([a for a in articles if a.source == 'twitter'])} tweets"
+                )
+            except Exception as e:
+                print(f"[Twitter] Error: {e}")
 
-            if options.get("apify_reddit"):
-                try:
-                    posts = await fetcher.fetch_reddit(config.REDDIT_SUBREDDITS)
-                    for post in posts:
-                        text = post.get("title", "") + " " + post.get("body", "")
-                        if is_ai_related(text):
-                            articles.append(
-                                Article(
-                                    title=post.get("title", "")[:100],
-                                    url=post.get("url", ""),
-                                    body=post.get("body", ""),
-                                    source=f"r/{post.get('subreddit', 'unknown')}",
-                                    published=datetime.utcfromtimestamp(
-                                        post.get("created", 0)
-                                    )
-                                    if post.get("created")
-                                    else datetime.utcnow(),
-                                )
-                            )
-                    print(
-                        f"[Reddit] Fetched {len([a for a in articles if a.source.startswith('r/')])} AI-related posts"
+        # Reddit - fetch via direct JSON API (reliable)
+        if options.get("apify_reddit"):
+            try:
+                posts = await apify_fetcher.fetch_reddit(config.REDDIT_SUBREDDITS)
+                for post in posts:
+                    articles.append(
+                        Article(
+                            title=post.get("title", "")[:100],
+                            url=post.get("url", ""),
+                            body=post.get("body", ""),
+                            source=post.get("source", "reddit"),
+                            published=datetime.utcfromtimestamp(post.get("created", 0))
+                            if post.get("created")
+                            else datetime.utcnow(),
+                        )
                     )
-                except Exception as e:
-                    print(f"[Reddit] Error: {e}")
+                print(
+                    f"[Reddit] Fetched {len([a for a in articles if a.source.startswith('r/')])} posts"
+                )
+            except Exception as e:
+                print(f"[Reddit] Error: {e}")
 
     except Exception as e:
         print(f"[Social] Fetch error: {e}")
