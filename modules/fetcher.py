@@ -70,7 +70,7 @@ async def fetch_rss_feed(
                 return []
             text = await response.text()
             feed = feedparser.parse(text)
-            for entry in feed.entries[:10]:
+            for entry in feed.entries[:5]:
                 pub_date = None
                 if hasattr(entry, "published_parsed") and entry.published_parsed:
                     try:
@@ -188,20 +188,20 @@ async def fetch_arxiv(
 
 
 async def fetch_all(options: dict = None) -> List[Article]:
-    """Fetch from all enabled sources."""
+    """Fetch from enabled sources: RSS, Reddit, Twitter only.
+    
+    HN/Arxiv/GitHub disabled to minimize traffic and LLM quota usage.
+    """
     if options is None:
         options = config.FETCH_OPTIONS
     articles = []
     tasks = []
 
+    # RSS feeds (primary source)
     if options.get("rss", True):
         tasks.append(fetch_all_rss(config.RSS_FEEDS))
-    if options.get("hn", True):
-        tasks.append(fetch_hackernews("ai", 10))
-    if options.get("arxiv", True):
-        tasks.append(fetch_arxiv(["cs.AI", "cs.LG", "cs.CL"], 10))
 
-    # Twitter + Reddit (direct scraping, no API key needed)
+    # Twitter + Reddit (social sources)
     if options.get("apify_twitter") or options.get("apify_reddit"):
         tasks.append(fetch_social_sources(options))
 

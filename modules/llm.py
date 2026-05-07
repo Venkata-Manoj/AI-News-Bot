@@ -44,7 +44,7 @@ def init_providers():
         _providers["gemini"] = LLMProvider(
             "gemini",
             config.GEMINI_API_KEY,
-            model=config.GEMINI_MODEL or "gemini-2.5-flash-lite-preview-06-17",
+            model=config.GEMINI_MODEL or "gemini-2.5-flash",
         )
 
     if config.OPENROUTER_API_KEY:
@@ -68,7 +68,7 @@ def init_providers():
             "nvidia",
             config.NVIDIA_API_KEY,
             endpoint="https://integrate.api.nvidia.com/v1/chat/completions",
-            model=config.NVIDIA_MODEL or "nvidia/llama-3.1-nemotron-70b-instruct",
+            model=config.NVIDIA_MODEL or "nvidia/llama-3.3-nemotron-super-49b-v1",
         )
 
     if config.OLLAMA_ENDPOINT:
@@ -101,7 +101,16 @@ def get_provider(order: List[str] = None) -> Optional[LLMProvider]:
     return None
 
 
-SYSTEM_PROMPT = """You are a concise AI news editor. For each article below, output ONLY a JSON array. Each element must have: 'index' (int), 'summary' (2 sentences, plain English, 8th grade level), 'score' (int 1–10, where 10 = highly relevant AI news, 1 = off-topic). No markdown, no explanation, just the array."""
+SYSTEM_PROMPT = """You are a concise AI news editor. For each article, return ONLY a valid JSON array.
+Each element must be a JSON object with exactly these keys:
+- "index": integer matching the article number
+- "summary": 2-sentence plain English summary
+- "score": integer 1-10 (10 = highly relevant AI news)
+
+Example output for 2 articles:
+[{"index": 1, "summary": "Summary here.", "score": 8}, {"index": 2, "summary": "Summary here.", "score": 6}]
+
+Return ONLY the JSON array. No markdown, no explanation, no extra text."""
 
 
 def build_prompt(articles) -> str:
@@ -183,10 +192,8 @@ async def call_openrouter(prompt: str) -> Optional[str]:
         raise
 
 
-    return None
-
-
-async def call_groq(prompt: str, retries: int = 3) -> Optional[str]:
+async def call_groq(prompt: str) -> Optional[str]:
+    """Call Groq - on any error, raise so fallback works."""
     provider = _providers.get("groq")
     if not provider or not provider.available:
         return None
@@ -206,31 +213,22 @@ async def call_groq(prompt: str, retries: int = 3) -> Optional[str]:
         "max_tokens": 2048,
     }
 
-    for attempt in range(retries):
-        try:
-            async with httpx.AsyncClient(timeout=60) as client:
-                resp = await client.post(
-                    provider.endpoint, headers=headers, json=payload
-                )
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(
+                provider.endpoint, headers=headers, json=payload
+            )
 
-                if resp.status_code == 200:
-                    data = resp.json()
-                    increment_daily_calls(1)
-                    return data["choices"][0]["message"]["content"]
-                elif resp.status_code == 429:
-                    print(f"[Groq] Rate limited, retry {attempt + 1}")
-                    wait_time = 12 * (2**attempt)
-                    await asyncio.sleep(wait_time)
-                else:
-                    print(f"[Groq] Error: {resp.status_code}")
-                    break
-        except asyncio.CancelledError:
-            print(f"[Groq] Interrupted, skipping")
-            raise
-        except Exception as e:
-            print(f"[Groq] Error (attempt {attempt + 1}): {e}")
-
-    return None
+            if resp.status_code == 200:
+                data = resp.json()
+                increment_daily_calls(1)
+                return data["choices"][0]["message"]["content"]
+            elif resp.status_code == 429:
+                raise Exception(f"QUOTA_EXCEEDED: Groq rate limited")
+            else:
+                raise Exception(f"Groq error: {resp.status_code}")
+    except asyncio.CancelledError:
+        raise
 
 
 async def call_nvidia(prompt: str, retries: int = 3) -> Optional[str]:
@@ -268,6 +266,8 @@ async def call_nvidia(prompt: str, retries: int = 3) -> Optional[str]:
                     print(f"[NVIDIA] Rate limited, retry {attempt + 1}")
                     wait_time = 12 * (2**attempt)
                     await asyncio.sleep(wait_time)
+                elif resp.status_code == 404:
+                    raise Exception(f"NVIDIA model not found (404): {resp.text[:100]}")
                 else:
                     print(f"[NVIDIA] Error: {resp.status_code} - {resp.text[:100]}")
                     break
@@ -402,32 +402,87 @@ async def call_with_fallback(prompt: str, order: List[str] = None) -> Optional[s
 
 
 def parse_response(text: str) -> List[Dict]:
+    if not text:
+        return []
+
+    original = text
     text = text.strip()
 
-    if text.startswith("```"):
-        parts = text.split("```")
-        if len(parts) > 1:
-            text = parts[1]
-            if text.startswith("json"):
-                text = text[4:]
-            text = text.strip()
+    # 1. Strip <think>...</think> reasoning blocks (Nemotron, DeepSeek, etc.)
+    import re
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
+    # 2. Extract from markdown code fences (```json ... ``` or ``` ... ```)
+    fence_match = re.search(r"```(?:json)?\s*\n?(.*?)```", text, re.DOTALL)
+    if fence_match:
+        text = fence_match.group(1).strip()
+
+    # 3. Try direct JSON parse
     try:
-        return json.loads(text)
+        parsed = json.loads(text)
+        if isinstance(parsed, list):
+            return parsed
+        # If it returned a dict with a list inside, try to extract
+        if isinstance(parsed, dict):
+            for v in parsed.values():
+                if isinstance(v, list):
+                    return v
     except json.JSONDecodeError:
         pass
 
-    import re
-
-    pattern = r"\[\s*\{.*?\}\s*\]"
-    match = re.search(pattern, text, re.DOTALL)
-    if match:
+    # 4. Find JSON array anywhere in the text (greedy)
+    array_match = re.search(r"\[[\s\S]*\]", text)
+    if array_match:
         try:
-            return json.loads(match.group())
-        except:
+            parsed = json.loads(array_match.group())
+            if isinstance(parsed, list):
+                return parsed
+        except json.JSONDecodeError:
             pass
 
-    print("[LLM] Failed to parse JSON response")
+    # 5. Try to repair malformed output: ["index":1,"summary":"...","score":9,"index":2,...]
+    # Some models omit {} around objects — reconstruct them
+    if '"index"' in text and '"score"' in text:
+        try:
+            # Split on "index" boundaries and wrap each chunk in {}
+            chunks = re.split(r',?\s*"index"\s*:', text)
+            results = []
+            for chunk in chunks:
+                chunk = chunk.strip().strip('[').strip(']').strip(',')
+                if not chunk:
+                    continue
+                obj_str = '{"index":' + chunk + '}'
+                # Clean trailing junk
+                obj_str = re.sub(r',\s*}', '}', obj_str)
+                try:
+                    obj = json.loads(obj_str)
+                    if 'index' in obj:
+                        results.append(obj)
+                except json.JSONDecodeError:
+                    continue
+            if results:
+                print(f"[LLM] Repaired {len(results)} objects from malformed response")
+                return results
+        except Exception:
+            pass
+
+    # 6. Last resort: find individual JSON objects
+    obj_matches = re.findall(r"\{[^{}]*\}", text)
+    if obj_matches:
+        results = []
+        for obj_str in obj_matches:
+            try:
+                obj = json.loads(obj_str)
+                if "index" in obj or "summary" in obj:
+                    results.append(obj)
+            except json.JSONDecodeError:
+                continue
+        if results:
+            return results
+
+    # Debug: show what we got so we can diagnose
+    print(f"[LLM] Failed to parse JSON response. Raw ({len(original)} chars):")
+    print(f"[LLM] >>> {original[:500]}{'...' if len(original) > 500 else ''}")
     return []
 
 

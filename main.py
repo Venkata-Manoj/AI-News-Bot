@@ -130,11 +130,12 @@ async def run_pipeline():
         log_pipeline_run(start_time, len(relevant), sent_count, llm_calls, duration)
         logger.info(f"[Pipeline] Complete in {duration:.1f}s")
 
+    except asyncio.CancelledError:
+        logger.info("[Pipeline] Cancelled, shutting down...")
+        raise
     except Exception as e:
         logger.error(f"[Pipeline] Error: {e}", exc_info=True)
         db.log_error("pipeline", str(e), "run_pipeline")
-    except asyncio.CancelledError:
-        logger.info("[Pipeline] Cancelled, shutting down...")
 
 
 async def run_apify_only():
@@ -183,13 +184,11 @@ def setup_scheduler():
     return scheduler
 
 
-async def main():
-    """Main entry point."""
-    # Ensure directories exist
+def _init_bot():
+    """Common init: dirs, config validation, LLM providers."""
     os.makedirs(config.DATA_DIR, exist_ok=True)
     os.makedirs(config.LOG_DIR, exist_ok=True)
 
-    # Validate critical config
     if not TELEGRAM_BOT_TOKEN:
         logger.error("TELEGRAM_BOT_TOKEN not set in .env")
         sys.exit(1)
@@ -198,31 +197,93 @@ async def main():
         logger.error("TELEGRAM_CHAT_ID not set in .env")
         sys.exit(1)
 
-    # Initialize LLM providers
     llm.init_providers()
     provider = llm.get_provider(LLM_PROVIDER_ORDER)
     if not provider:
         logger.error(
-            "No LLM provider available. Set at least one API key: GEMINI_API_KEY, NVIDIA_API_KEY, OPENROUTER_API_KEY, GROQ_API_KEY"
+            "No LLM provider available. Set at least one API key: "
+            "GEMINI_API_KEY, NVIDIA_API_KEY, OPENROUTER_API_KEY, GROQ_API_KEY"
         )
         sys.exit(1)
 
     logger.info(f"[LLM] Using provider: {provider}")
-    logger.info("[Main] AI News Bot starting...")
+    return provider
 
-    # Start scheduler and run
-    scheduler = setup_scheduler()
 
-    # Run pipeline immediately on startup
+async def main_test():
+    """Single pipeline run for testing — no scheduler, exits when done."""
+    _init_bot()
+    logger.info("[Test] Running single pipeline pass...")
     await run_pipeline()
+    logger.info("[Test] Done.")
+
+
+async def main_schedule():
+    """Production mode — scheduled pipeline runs."""
+    _init_bot()
+    logger.info("[Main] AI News Bot starting (scheduled mode)...")
+
+    scheduler = setup_scheduler()
 
     try:
         while True:
             await asyncio.sleep(3600)
-    except (KeyboardInterrupt, SystemExit):
-        logger.info("[Main] Shutting down...")
-        scheduler.shutdown()
+    except (KeyboardInterrupt, SystemExit, asyncio.CancelledError):
+        logger.info("[Main] Shutting down gracefully...")
+    finally:
+        scheduler.shutdown(wait=False)
+        logger.info("[Main] Scheduler stopped.")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    import argparse
+
+    parser = argparse.ArgumentParser(description="AI News Bot")
+    parser.add_argument(
+        "--schedule",
+        action="store_true",
+        help="Run in scheduled mode (default: single test run)",
+    )
+    parser.add_argument(
+        "--fresh",
+        action="store_true",
+        help="Clear seen URL cache before running (forces reprocessing)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Skip Telegram sending, just print formatted messages",
+    )
+    args = parser.parse_args()
+
+    # Clear seen URLs if --fresh
+    if args.fresh:
+        from modules.db import db as _db
+        import sqlite3
+        with sqlite3.connect(_db.db_path) as conn:
+            count = conn.execute("SELECT COUNT(*) FROM seen_urls").fetchone()[0]
+            conn.execute("DELETE FROM seen_urls")
+        print(f"[Fresh] Cleared {count} seen URLs from cache")
+
+    # Monkey-patch sender to print instead of sending if --dry-run
+    if args.dry_run:
+        async def _dry_send(messages, chat_id=None):
+            print(f"\n{'='*60}")
+            print(f"[Dry Run] Would send {len(messages)} message(s):")
+            print(f"{'='*60}")
+            for i, msg in enumerate(messages, 1):
+                print(f"\n--- Message {i} ---")
+                print(msg)
+            print(f"\n{'='*60}")
+            return len(messages)
+
+        sender.send_batch = _dry_send
+
+    try:
+        if args.schedule:
+            asyncio.run(main_schedule())
+        else:
+            asyncio.run(main_test())
+    except KeyboardInterrupt:
+        pass
+

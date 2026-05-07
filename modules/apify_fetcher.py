@@ -35,7 +35,7 @@ REDDIT_SUBREDDITS = [
 ]
 
 
-async def fetch_twitter(accounts: List[str] = None, limit: int = 10) -> List[dict]:
+async def fetch_twitter(accounts: List[str] = None, limit: int = 5) -> List[dict]:
     """Fetch tweets via Nitter RSS feeds.
 
     Note: Twitter RSS is unreliable - most instances block RSS readers.
@@ -100,7 +100,7 @@ async def fetch_twitter(accounts: List[str] = None, limit: int = 10) -> List[dic
     return results
 
 
-async def fetch_reddit(subreddits: List[str] = None, limit: int = 20) -> List[dict]:
+async def fetch_reddit(subreddits: List[str] = None, limit: int = 10) -> List[dict]:
     """Fetch Reddit posts via public JSON API (reliable, free)."""
     if not subreddits:
         subreddits = REDDIT_SUBREDDITS
