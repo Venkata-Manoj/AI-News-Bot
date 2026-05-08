@@ -31,7 +31,7 @@ python main.py
 ### Required Keys
 
 | Key | Where to get it |
-|-----|----------------|-
+|-----|----------------|
 | `TELEGRAM_BOT_TOKEN` | [@BotFather](https://t.me/BotFather) |
 | `TELEGRAM_CHAT_ID` | [@userinfobot](https://t.me/userinfobot) |
 | `GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com) (free, 1000 RPD) |
@@ -39,7 +39,7 @@ python main.py
 ### Optional Keys
 
 | Key | Purpose |
-|-----|---------|-
+|-----|---------|
 | `YOUTUBE_API_KEY` | YouTube Data API v3 — [Google Cloud Console](https://console.cloud.google.com) |
 | `NVIDIA_API_KEY` | LLM fallback — [NVIDIA NIM](https://build.nvidia.com) |
 | `OPENROUTER_API_KEY` | LLM fallback — [OpenRouter](https://openrouter.ai) |
@@ -110,7 +110,7 @@ The bot monitors **17 AI YouTube channels** with a full 4-stage pipeline:
 ## 🧠 LLM Fallback Chain
 
 | Priority | Provider | Model | Free Tier |
-|----------|----------|-------|-----------|-
+|----------|----------|-------|-----------|
 | 1 | Google Gemini | gemini-2.5-flash | 1000 RPD |
 | 2 | NVIDIA NIM | llama-3.3-nemotron-super-49b-v1 | Free |
 | 3 | OpenRouter | gemma-4-31b-it:free | ~1000 RPD |
@@ -173,7 +173,7 @@ python tests/test_reddit.py
 ### Test Results (v3.0)
 
 | Source | Status | Time |
-|--------|--------|------|-
+|--------|--------|------|
 | RSS Feeds | ✅ PASS | 2.2s |
 | Hacker News | ❌ FAIL | 3.7s (disabled, expected) |
 | arXiv | ✅ PASS | 1.1s |
@@ -188,7 +188,7 @@ python tests/test_reddit.py
 Key environment variables (see `.env.example` for full list):
 
 | Variable | Default | Description |
-|----------|---------|-------------|-
+|----------|---------|-------------|
 | `FETCH_INTERVAL_MINUTES` | 45 | Pipeline run interval |
 | `MIN_RELEVANCE_SCORE` | 6 | LLM score threshold (1-10) |
 | `BATCH_SIZE` | 5 | Articles per LLM call |
@@ -221,7 +221,7 @@ python main.py --fresh
 ## 📋 Version History
 
 | Version | Date | Highlights |
-|---------|------|------------|-
+|---------|------|------------|
 | v1.0 | 2026-05-06 | RSS feeds, JSON dedup, Gemini, Telegram |
 | v1.1 | 2026-05-06 | Added NVIDIA NIM, removed Reddit creds |
 | v2.0 | 2026-05-06 | SQLite, async dispatcher, smart scheduler, LLM fallback |
