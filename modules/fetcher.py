@@ -188,7 +188,7 @@ async def fetch_arxiv(
 
 
 async def fetch_all(options: dict = None) -> List[Article]:
-    """Fetch from enabled sources: RSS, Reddit, Twitter only.
+    """Fetch from enabled sources: RSS, Reddit, Twitter, YouTube.
     
     HN/Arxiv/GitHub disabled to minimize traffic and LLM quota usage.
     """
@@ -205,6 +205,10 @@ async def fetch_all(options: dict = None) -> List[Article]:
     if options.get("apify_twitter") or options.get("apify_reddit"):
         tasks.append(fetch_social_sources(options))
 
+    # YouTube channels
+    if options.get("youtube"):
+        tasks.append(fetch_youtube_sources())
+
     results = await asyncio.gather(*tasks, return_exceptions=True)
     for result in results:
         if isinstance(result, list):
@@ -212,6 +216,19 @@ async def fetch_all(options: dict = None) -> List[Article]:
     articles.sort(key=lambda a: (a.score or 0, a.published), reverse=True)
     print(f"[Total] Fetched {len(articles)} articles from all sources")
     return articles
+
+
+async def fetch_youtube_sources() -> List[Article]:
+    """Fetch new videos from configured YouTube channels."""
+    try:
+        from modules.youtube_fetcher import fetch_all_channels
+        return await fetch_all_channels(
+            config.YOUTUBE_CHANNELS,
+            config.YOUTUBE_API_KEY,
+        )
+    except Exception as e:
+        print(f"[YouTube] Fetch error: {e}")
+        return []
 
 
 async def fetch_social_sources(options: dict) -> List[Article]:

@@ -1,0 +1,37 @@
+"""Test Hacker News fetcher — fetches 3 stories only."""
+
+import asyncio
+import sys
+import os
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from modules.fetcher import fetch_hackernews
+
+
+async def test_hn():
+    print("=" * 60)
+    print("TEST: Hacker News Fetcher")
+    print("Query: 'ai', Limit: 3")
+    print("=" * 60)
+
+    articles = await fetch_hackernews(tag="ai", limit=3)
+
+    print(f"\nResults: {len(articles)} articles")
+    print("-" * 60)
+
+    for i, a in enumerate(articles, 1):
+        print(f"\n[{i}] {a.title[:80]}")
+        print(f"    Source:    {a.source}")
+        print(f"    URL:       {a.url[:80]}")
+        print(f"    Published: {a.published}")
+
+    print(f"\n{'=' * 60}")
+    status = "PASSED" if len(articles) > 0 else "FAILED (0 articles)"
+    print(f"HN TEST: {status}")
+    print(f"{'=' * 60}")
+    return len(articles) > 0
+
+
+if __name__ == "__main__":
+    asyncio.run(test_hn())

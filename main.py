@@ -25,7 +25,6 @@ from config import (
 )
 from modules import fetcher, llm, formatter, sender
 from modules.db import db
-from modules.dispatcher import get_dispatcher
 from modules.dedup import seen_manager
 
 # Logging configuration

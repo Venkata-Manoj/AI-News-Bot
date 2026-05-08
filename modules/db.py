@@ -68,6 +68,38 @@ class StateDB:
                 )
             """)
 
+            # YouTube videos (delta check + stats refresh)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS youtube_videos (
+                    video_id          TEXT PRIMARY KEY,
+                    channel_id        TEXT,
+                    title             TEXT,
+                    description       TEXT,
+                    thumbnail         TEXT,
+                    published_at      TEXT,
+                    duration_seconds  INTEGER,
+                    tags              TEXT,
+                    views             INTEGER DEFAULT 0,
+                    likes             INTEGER DEFAULT 0,
+                    comment_count     INTEGER DEFAULT 0,
+                    transcript        TEXT,
+                    scraped_at        TEXT
+                )
+            """)
+
+            # YouTube comments
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS youtube_comments (
+                    comment_id   TEXT PRIMARY KEY,
+                    video_id     TEXT,
+                    author       TEXT,
+                    text         TEXT,
+                    like_count   INTEGER DEFAULT 0,
+                    published_at TEXT,
+                    scraped_at   TEXT
+                )
+            """)
+
     # --- Seen URLs ---
 
     def is_seen(self, url_hash: str) -> bool:
@@ -162,6 +194,80 @@ class StateDB:
                     status,
                 ),
             )
+
+    # --- YouTube Videos ---
+
+    def is_youtube_video_seen(self, video_id: str) -> bool:
+        """Check if a YouTube video has already been processed."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                "SELECT 1 FROM youtube_videos WHERE video_id = ?", (video_id,)
+            )
+            return cursor.fetchone() is not None
+
+    def upsert_youtube_video(self, video: dict):
+        """Insert or update a YouTube video record (always refresh stats)."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """INSERT INTO youtube_videos
+                   (video_id, channel_id, title, description, thumbnail,
+                    published_at, duration_seconds, tags,
+                    views, likes, comment_count, transcript, scraped_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(video_id) DO UPDATE SET
+                    views = excluded.views,
+                    likes = excluded.likes,
+                    comment_count = excluded.comment_count,
+                    scraped_at = excluded.scraped_at
+                """,
+                (
+                    video["video_id"],
+                    video.get("channel_id", ""),
+                    video.get("title", ""),
+                    video.get("description", ""),
+                    video.get("thumbnail", ""),
+                    video.get("published_at", ""),
+                    video.get("duration_seconds", 0),
+                    video.get("tags", "[]"),
+                    video.get("views", 0),
+                    video.get("likes", 0),
+                    video.get("comment_count", 0),
+                    video.get("transcript", ""),
+                    datetime.now(timezone.utc).isoformat(),
+                ),
+            )
+
+    def update_youtube_video_stats(self, video_id: str, views: int, likes: int, comment_count: int):
+        """Refresh stats for an already-processed video."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """UPDATE youtube_videos
+                   SET views = ?, likes = ?, comment_count = ?,
+                       scraped_at = ?
+                   WHERE video_id = ?""",
+                (views, likes, comment_count,
+                 datetime.now(timezone.utc).isoformat(), video_id),
+            )
+
+    def insert_youtube_comments(self, comments: list):
+        """Bulk insert comments with deduplication."""
+        with sqlite3.connect(self.db_path) as conn:
+            for c in comments:
+                conn.execute(
+                    """INSERT OR IGNORE INTO youtube_comments
+                       (comment_id, video_id, author, text,
+                        like_count, published_at, scraped_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        c.get("comment_id", ""),
+                        c.get("video_id", ""),
+                        c.get("author", ""),
+                        c.get("text", ""),
+                        c.get("like_count", 0),
+                        c.get("published_at", ""),
+                        datetime.now(timezone.utc).isoformat(),
+                    ),
+                )
 
 
 # Singleton instance for global use

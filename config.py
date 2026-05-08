@@ -44,6 +44,7 @@ ENABLE_APIFY_REDDIT = os.getenv("ENABLE_APIFY_REDDIT", "true").lower() == "true"
 ENABLE_HN = os.getenv("ENABLE_HN", "true").lower() == "true"
 ENABLE_ARXIV = os.getenv("ENABLE_ARXIV", "true").lower() == "true"
 ENABLE_GITHUB = os.getenv("ENABLE_GITHUB", "false").lower() == "true"
+ENABLE_YOUTUBE = os.getenv("ENABLE_YOUTUBE", "true").lower() == "true"
 
 # Fetch options (used by dispatcher)
 FETCH_OPTIONS = {
@@ -53,7 +54,24 @@ FETCH_OPTIONS = {
     "hn": ENABLE_HN,
     "arxiv": ENABLE_ARXIV,
     "github": ENABLE_GITHUB,
+    "youtube": ENABLE_YOUTUBE,
 }
+
+# ========== YOUTUBE DATA API ==========
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
+YOUTUBE_CHANNELS = [
+    c.strip() for c in os.getenv(
+        "YOUTUBE_CHANNELS",
+        "okaashish,vibhavsishty,vishnuvijayan,TinaHuang,"
+        "PrasadTechInTelugu,rajshamani,RawTalksWithVK,"
+        "VarunMayya,AishwaryaSrinivasan,IBMTechnology,"
+        "huggingface,freecodecamp,AndrejKarpathy,"
+        "TwoMinutePapers,YannicKilcher,lexfridman,sentdex"
+    ).split(",") if c.strip()
+]
+YOUTUBE_FETCH_COMMENTS = os.getenv("YOUTUBE_FETCH_COMMENTS", "true").lower() == "true"
+YOUTUBE_MAX_VIDEOS_PER_CHANNEL = int(os.getenv("YOUTUBE_MAX_VIDEOS_PER_CHANNEL", "5"))
+YOUTUBE_TRANSCRIPT_LANG = os.getenv("YOUTUBE_TRANSCRIPT_LANG", "en")
 
 # ========== RSS FEEDS (21+ sources) ==========
 RSS_FEEDS = [
