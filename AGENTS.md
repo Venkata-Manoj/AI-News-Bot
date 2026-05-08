@@ -56,7 +56,7 @@ Pipeline: fetch → dedup → keyword filter → LLM summarize → score filter 
 ## Sources
 
 | Source | Config Flag | Notes |
-|--------|------------|-------|
+|--------|------------|-------|-
 | RSS Feeds | `ENABLE_RSS` | 19+ AI blog feeds |
 | Reddit | `ENABLE_APIFY_REDDIT` | Public JSON API, no key needed |
 | Twitter | `ENABLE_APIFY_TWITTER` | Nitter RSS, unreliable |
@@ -73,7 +73,7 @@ If primary fails (429/quota), auto-falls back to next available provider.
 ## Key Env Variables
 
 | Variable | Default | Notes |
-|----------|---------|-------|
+|----------|---------|-------|-
 | `MIN_RELEVANCE_SCORE` | 6 | Filter threshold (1-10) |
 | `BATCH_SIZE` | 5 | Articles per LLM call |
 | `MAX_ARTICLES_PER_RUN` | 5 | Max to process per cycle |
@@ -87,3 +87,20 @@ If primary fails (429/quota), auto-falls back to next available provider.
 - Local LLMs (Ollama, LM Studio) require running servers
 - `yt-dlp` must be installed for YouTube transcript downloads
 - YouTube API free tier: 10,000 quota units/day
+
+## Do's and Don'ts
+
+## Do's
+
+1. Always Update the PROGRESS.md file after making any changes in the code
+2. Always Test the code after making any changes in the code
+3. After every successful feature add an entry in README.md and update the version.
+4. Always update dependencies to the codebase when asked to do so.
+5. Always Commit the changes after a successful test run with a proper commit message.
+
+## Don'ts
+
+1. Don't edit the code without testing it
+2. Don't make changes in the code without updating the PROGRESS.md file
+3. Don't update dependencies without asking the user first
+4. Don't update the version without asking the user first
