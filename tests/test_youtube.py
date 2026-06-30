@@ -4,6 +4,8 @@ import asyncio
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import aiohttp
@@ -23,6 +25,8 @@ from modules.youtube_fetcher import (
 )
 
 
+@pytest.mark.asyncio
+@pytest.mark.skipif(not os.getenv("YOUTUBE_API_KEY"), reason="No YOUTUBE_API_KEY")
 async def test_youtube():
     api_key = config.YOUTUBE_API_KEY
     if not api_key or api_key == "YOUR_YOUTUBE_API_KEY_HERE":

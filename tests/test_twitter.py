@@ -4,11 +4,14 @@ import asyncio
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from modules.apify_fetcher import fetch_twitter
 
 
+@pytest.mark.asyncio
 async def test_twitter():
     print("=" * 60)
     print("TEST: Twitter Fetcher (Nitter RSS)")

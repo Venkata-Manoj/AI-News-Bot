@@ -4,11 +4,14 @@ import asyncio
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from modules.fetcher import fetch_all_rss
 
 
+@pytest.mark.asyncio
 async def test_rss():
     # Only 2 feeds to save bandwidth
     test_feeds = [
@@ -22,6 +25,8 @@ async def test_rss():
     print("=" * 60)
 
     articles = await fetch_all_rss(test_feeds)
+
+    assert len(articles) > 0, f"Expected at least 1 article, got {len(articles)}"
 
     print(f"\nResults: {len(articles)} articles")
     print("-" * 60)

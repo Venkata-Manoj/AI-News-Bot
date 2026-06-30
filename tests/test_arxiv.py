@@ -4,11 +4,14 @@ import asyncio
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from modules.fetcher import fetch_arxiv
 
 
+@pytest.mark.asyncio
 async def test_arxiv():
     print("=" * 60)
     print("TEST: arXiv Fetcher")
@@ -16,6 +19,8 @@ async def test_arxiv():
     print("=" * 60)
 
     articles = await fetch_arxiv(categories=["cs.AI"], max_results=2)
+
+    assert len(articles) > 0, f"Expected at least 1 paper, got {len(articles)}"
 
     print(f"\nResults: {len(articles)} papers")
     print("-" * 60)
