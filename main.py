@@ -9,21 +9,19 @@ import logging
 import os
 import sys
 from datetime import datetime
-from pathlib import Path
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 import config
 from config import (
-    TELEGRAM_BOT_TOKEN,
-    TELEGRAM_CHAT_ID,
-    APIFY_API_KEY,
-    FETCH_OPTIONS,
     FETCH_INTERVAL_MINUTES,
+    FETCH_OPTIONS,
     LLM_PROVIDER_ORDER,
     LOG_FILE,
+    TELEGRAM_BOT_TOKEN,
+    TELEGRAM_CHAT_ID,
 )
-from modules import fetcher, llm, formatter, sender
+from modules import fetcher, formatter, llm, sender
 from modules.db import db
 from modules.dedup import seen_manager
 
@@ -257,8 +255,9 @@ if __name__ == "__main__":
 
     # Clear seen URLs if --fresh
     if args.fresh:
-        from modules.db import db as _db
         import sqlite3
+
+        from modules.db import db as _db
         with sqlite3.connect(_db.db_path) as conn:
             count = conn.execute("SELECT COUNT(*) FROM seen_urls").fetchone()[0]
             conn.execute("DELETE FROM seen_urls")

@@ -5,13 +5,13 @@ from content publication to Telegram delivery during active news cycles.
 """
 
 import asyncio
+import contextlib
 import time
 from dataclasses import dataclass
-from typing import List, Optional
 
 import config
+from modules import formatter, llm, sender
 from modules.db import db
-from modules import llm, formatter, sender
 
 
 @dataclass
@@ -54,10 +54,8 @@ class AsyncDispatcher:
         self._shutdown_event.set()
         if self._worker_task:
             self._worker_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._worker_task
-            except asyncio.CancelledError:
-                pass
         print("[Dispatcher] Stopped")
 
     async def enqueue(self, article) -> bool:
@@ -85,13 +83,13 @@ class AsyncDispatcher:
                 self.queue.get_nowait()
                 self.queue.put_nowait(item)
                 return True
-            except:
+            except Exception:
                 return False
 
     async def _worker_loop(self):
         """Main worker loop that processes items from the queue."""
         batch = []
-        last_batch_time = time.time()
+        time.time()
 
         while self.processing:
             try:
@@ -101,7 +99,7 @@ class AsyncDispatcher:
                         self.queue.get(),
                         timeout=5.0,
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Process any remaining batch on timeout
                     if batch:
                         await self._process_batch(batch)
@@ -135,7 +133,7 @@ class AsyncDispatcher:
                 print(f"[Dispatcher] Worker error: {e}")
                 await asyncio.sleep(1)
 
-    async def _process_batch(self, items: List[QueueItem]):
+    async def _process_batch(self, items: list[QueueItem]):
         """Process a batch of items through LLM and Telegram."""
         if not items:
             return
@@ -195,7 +193,7 @@ class AsyncDispatcher:
 
 
 # Singleton instance
-_dispatcher: Optional[AsyncDispatcher] = None
+_dispatcher: AsyncDispatcher | None = None
 
 
 def get_dispatcher() -> AsyncDispatcher:

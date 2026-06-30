@@ -1,18 +1,26 @@
 """Test YouTube fetcher — fetches 1 video from 1 channel (minimal quota usage)."""
 
 import asyncio
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+import aiohttp
+
 import config
 from modules.youtube_fetcher import (
-    get_channel_id, get_uploads_playlist_id, fetch_video_ids,
-    fetch_video_details, download_transcript, parse_vtt,
-    chunk_transcript, fetch_comments, format_duration, format_count,
+    chunk_transcript,
+    download_transcript,
+    fetch_comments,
+    fetch_video_details,
+    fetch_video_ids,
+    format_count,
+    format_duration,
+    get_channel_id,
+    get_uploads_playlist_id,
+    parse_vtt,
 )
-import aiohttp
 
 
 async def test_youtube():

@@ -6,12 +6,8 @@ Uses free APIs (no API keys needed):
 """
 
 import asyncio
-from datetime import datetime
-from typing import List
 
 import aiohttp
-
-import config
 
 # Nitter instances - Twitter RSS is unreliable (many blocking RSS readers)
 # Last tested: May 2026
@@ -35,7 +31,7 @@ REDDIT_SUBREDDITS = [
 ]
 
 
-async def fetch_twitter(accounts: List[str] = None, limit: int = 5) -> List[dict]:
+async def fetch_twitter(accounts: list[str] = None, limit: int = 5) -> list[dict]:
     """Fetch tweets via Nitter RSS feeds.
 
     Note: Twitter RSS is unreliable - most instances block RSS readers.
@@ -51,45 +47,44 @@ async def fetch_twitter(accounts: List[str] = None, limit: int = 5) -> List[dict
         for instance in NITTER_INSTANCES:
             try:
                 url = f"https://{instance}/rss.php?username={username}"
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        url, timeout=aiohttp.ClientTimeout(total=8)
-                    ) as resp:
-                        if resp.status != 200:
+                async with aiohttp.ClientSession() as session, session.get(
+                    url, timeout=aiohttp.ClientTimeout(total=8)
+                ) as resp:
+                    if resp.status != 200:
+                        continue
+
+                    text = await resp.text()
+                    feed = feedparser.parse(text)
+
+                    items = []
+                    for entry in feed.entries[:limit]:
+                        title = entry.get("title", "")
+                        # Skip blocked messages
+                        if (
+                            "whitelisted" in title.lower()
+                            or "not allowed" in title.lower()
+                        ):
                             continue
+                        if title.startswith(f"@{username}: "):
+                            title = title[len(f"@{username}: ") :]
 
-                        text = await resp.text()
-                        feed = feedparser.parse(text)
-
-                        items = []
-                        for entry in feed.entries[:limit]:
-                            title = entry.get("title", "")
-                            # Skip blocked messages
-                            if (
-                                "whitelisted" in title.lower()
-                                or "not allowed" in title.lower()
-                            ):
-                                continue
-                            if title.startswith(f"@{username}: "):
-                                title = title[len(f"@{username}: ") :]
-
-                            if is_ai_related(title):
-                                items.append(
-                                    {
-                                        "text": title,
-                                        "url": entry.get("link", ""),
-                                        "source": "twitter",
-                                        "username": username,
-                                        "published": entry.get("published", ""),
-                                    }
-                                )
-
-                        if items:
-                            print(
-                                f"[Twitter] {username}: {len(items)} tweets via {instance}"
+                        if is_ai_related(title):
+                            items.append(
+                                {
+                                    "text": title,
+                                    "url": entry.get("link", ""),
+                                    "source": "twitter",
+                                    "username": username,
+                                    "published": entry.get("published", ""),
+                                }
                             )
-                            results.extend(items)
-                            break
+
+                    if items:
+                        print(
+                            f"[Twitter] {username}: {len(items)} tweets via {instance}"
+                        )
+                        results.extend(items)
+                        break
 
             except Exception:
                 continue
@@ -100,7 +95,7 @@ async def fetch_twitter(accounts: List[str] = None, limit: int = 5) -> List[dict
     return results
 
 
-async def fetch_reddit(subreddits: List[str] = None, limit: int = 10) -> List[dict]:
+async def fetch_reddit(subreddits: list[str] = None, limit: int = 10) -> list[dict]:
     """Fetch Reddit posts via public JSON API (reliable, free)."""
     if not subreddits:
         subreddits = REDDIT_SUBREDDITS
@@ -190,9 +185,9 @@ def is_ai_related(text: str) -> bool:
 
 
 # Backward compatibility aliases
-async def fetch_twitter_posts(accounts: List[str] = None) -> List[dict]:
+async def fetch_twitter_posts(accounts: list[str] = None) -> list[dict]:
     return await fetch_twitter(accounts)
 
 
-async def fetch_reddit_posts(subreddits: List[str] = None) -> List[dict]:
+async def fetch_reddit_posts(subreddits: list[str] = None) -> list[dict]:
     return await fetch_reddit(subreddits)

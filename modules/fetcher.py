@@ -1,12 +1,10 @@
 import asyncio
+import contextlib
 import hashlib
-import json
 from datetime import datetime
-from typing import List, Optional
 
 import aiohttp
 import feedparser
-import httpx
 from bs4 import BeautifulSoup
 
 import config
@@ -60,7 +58,7 @@ class Article:
 
 async def fetch_rss_feed(
     session: aiohttp.ClientSession, feed_url: str, source_name: str
-) -> List[Article]:
+) -> list[Article]:
     articles = []
     try:
         async with session.get(
@@ -73,10 +71,8 @@ async def fetch_rss_feed(
             for entry in feed.entries[:5]:
                 pub_date = None
                 if hasattr(entry, "published_parsed") and entry.published_parsed:
-                    try:
+                    with contextlib.suppress(BaseException):
                         pub_date = datetime(*entry.published_parsed[:6])
-                    except:
-                        pass
                 articles.append(
                     Article(
                         title=entry.get("title", "Untitled").strip(),
@@ -91,7 +87,7 @@ async def fetch_rss_feed(
     return articles
 
 
-async def fetch_all_rss(feed_urls: List[str]) -> List[Article]:
+async def fetch_all_rss(feed_urls: list[str]) -> list[Article]:
     articles = []
     async with aiohttp.ClientSession() as session:
         tasks = []
@@ -101,7 +97,7 @@ async def fetch_all_rss(feed_urls: List[str]) -> List[Article]:
 
                 parsed = urlparse(url)
                 name = parsed.netloc.replace("www.", "").split(".")[0]
-            except:
+            except Exception:
                 name = "unknown"
             tasks.append(fetch_rss_feed(session, url, name))
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -112,7 +108,7 @@ async def fetch_all_rss(feed_urls: List[str]) -> List[Article]:
     return articles
 
 
-async def fetch_hackernews(tag: str = "ai", limit: int = 10) -> List[Article]:
+async def fetch_hackernews(tag: str = "ai", limit: int = 10) -> list[Article]:
     articles = []
     try:
         async with aiohttp.ClientSession() as session:
@@ -147,8 +143,8 @@ async def fetch_hackernews(tag: str = "ai", limit: int = 10) -> List[Article]:
 
 
 async def fetch_arxiv(
-    categories: List[str] = None, max_results: int = 10
-) -> List[Article]:
+    categories: list[str] = None, max_results: int = 10
+) -> list[Article]:
     articles = []
     if categories is None:
         categories = ["cs.AI", "cs.CL", "cs.LG"]
@@ -187,9 +183,9 @@ async def fetch_arxiv(
     return articles
 
 
-async def fetch_all(options: dict = None) -> List[Article]:
+async def fetch_all(options: dict = None) -> list[Article]:
     """Fetch from enabled sources: RSS, Reddit, Twitter, YouTube.
-    
+
     HN/Arxiv/GitHub disabled to minimize traffic and LLM quota usage.
     """
     if options is None:
@@ -218,7 +214,7 @@ async def fetch_all(options: dict = None) -> List[Article]:
     return articles
 
 
-async def fetch_youtube_sources() -> List[Article]:
+async def fetch_youtube_sources() -> list[Article]:
     """Fetch new videos from configured YouTube channels."""
     try:
         from modules.youtube_fetcher import fetch_all_channels
@@ -231,7 +227,7 @@ async def fetch_youtube_sources() -> List[Article]:
         return []
 
 
-async def fetch_social_sources(options: dict) -> List[Article]:
+async def fetch_social_sources(options: dict) -> list[Article]:
     """Fetch from Twitter (Nitter RSS) + Reddit (direct API) - no API key needed."""
     articles = []
 

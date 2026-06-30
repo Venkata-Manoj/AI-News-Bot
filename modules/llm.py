@@ -1,11 +1,8 @@
-import json
-import os
 import asyncio
-from datetime import datetime, timezone
-from typing import List, Dict, Optional, Any
+import json
+from datetime import UTC, datetime
 from enum import Enum
 
-import aiohttp
 import httpx
 
 import config
@@ -34,7 +31,7 @@ class LLMProvider:
         )
 
 
-_providers: Dict[str, LLMProvider] = {}
+_providers: dict[str, LLMProvider] = {}
 
 
 def init_providers():
@@ -90,7 +87,7 @@ def init_providers():
     return _providers
 
 
-def get_provider(order: List[str] = None) -> Optional[LLMProvider]:
+def get_provider(order: list[str] = None) -> LLMProvider | None:
     if order is None:
         order = ["gemini", "openrouter", "groq", "ollama", "lmstudio"]
 
@@ -122,7 +119,7 @@ def build_prompt(articles) -> str:
     return "\n\n".join(user_parts)
 
 
-async def call_gemini(prompt: str, retries: int = 1) -> Optional[str]:
+async def call_gemini(prompt: str, retries: int = 1) -> str | None:
     """Call Gemini - on quota error, raise immediately so fallback can try next provider."""
     import google.generativeai as genai
 
@@ -149,11 +146,11 @@ async def call_gemini(prompt: str, retries: int = 1) -> Optional[str]:
             or "quota" in error_str.lower()
             or "rate limit" in error_str.lower()
         ):
-            raise Exception(f"QUOTA_EXCEEDED: {error_str}")
+            raise Exception(f"QUOTA_EXCEEDED: {error_str}") from e
         return None
 
 
-async def call_openrouter(prompt: str) -> Optional[str]:
+async def call_openrouter(prompt: str) -> str | None:
     """Call OpenRouter - on any error, raise so fallback works."""
     provider = _providers.get("openrouter")
     if not provider or not provider.available:
@@ -185,14 +182,14 @@ async def call_openrouter(prompt: str) -> Optional[str]:
                 increment_daily_calls(1)
                 return data["choices"][0]["message"]["content"]
             elif resp.status_code == 429:
-                raise Exception(f"QUOTA_EXCEEDED: OpenRouter rate limited")
+                raise Exception("QUOTA_EXCEEDED: OpenRouter rate limited")
             else:
                 raise Exception(f"OpenRouter error: {resp.status_code} - {resp.text[:100]}")
     except asyncio.CancelledError:
         raise
 
 
-async def call_groq(prompt: str) -> Optional[str]:
+async def call_groq(prompt: str) -> str | None:
     """Call Groq - on any error, raise so fallback works."""
     provider = _providers.get("groq")
     if not provider or not provider.available:
@@ -224,14 +221,14 @@ async def call_groq(prompt: str) -> Optional[str]:
                 increment_daily_calls(1)
                 return data["choices"][0]["message"]["content"]
             elif resp.status_code == 429:
-                raise Exception(f"QUOTA_EXCEEDED: Groq rate limited")
+                raise Exception("QUOTA_EXCEEDED: Groq rate limited")
             else:
                 raise Exception(f"Groq error: {resp.status_code}")
     except asyncio.CancelledError:
         raise
 
 
-async def call_nvidia(prompt: str, retries: int = 3) -> Optional[str]:
+async def call_nvidia(prompt: str, retries: int = 3) -> str | None:
     provider = _providers.get("nvidia")
     if not provider or not provider.available:
         return None
@@ -272,7 +269,7 @@ async def call_nvidia(prompt: str, retries: int = 3) -> Optional[str]:
                     print(f"[NVIDIA] Error: {resp.status_code} - {resp.text[:100]}")
                     break
         except asyncio.CancelledError:
-            print(f"[NVIDIA] Interrupted, skipping")
+            print("[NVIDIA] Interrupted, skipping")
             raise
         except Exception as e:
             print(f"[NVIDIA] Error (attempt {attempt + 1}): {e}")
@@ -280,7 +277,7 @@ async def call_nvidia(prompt: str, retries: int = 3) -> Optional[str]:
     return None
 
 
-async def call_ollama(prompt: str, retries: int = 3) -> Optional[str]:
+async def call_ollama(prompt: str, retries: int = 3) -> str | None:
     provider = _providers.get("ollama")
     if not provider or not provider.available:
         return None
@@ -312,7 +309,7 @@ async def call_ollama(prompt: str, retries: int = 3) -> Optional[str]:
     return None
 
 
-async def call_lmstudio(prompt: str, retries: int = 3) -> Optional[str]:
+async def call_lmstudio(prompt: str, retries: int = 3) -> str | None:
     provider = _providers.get("lmstudio")
     if not provider or not provider.available:
         return None
@@ -358,7 +355,7 @@ _PROVIDER_FUNCTIONS = {
 }
 
 
-async def call_with_fallback(prompt: str, order: List[str] = None) -> Optional[str]:
+async def call_with_fallback(prompt: str, order: list[str] = None) -> str | None:
     if order is None:
         order = ["gemini", "nvidia", "openrouter", "groq", "ollama", "lmstudio"]
 
@@ -401,7 +398,7 @@ async def call_with_fallback(prompt: str, order: List[str] = None) -> Optional[s
     return None
 
 
-def parse_response(text: str) -> List[Dict]:
+def parse_response(text: str) -> list[dict]:
     if not text:
         return []
 
@@ -492,7 +489,7 @@ def load_daily_calls() -> dict:
 
     return {
         "count": db.get_daily_call_count(),
-        "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "date": datetime.now(UTC).strftime("%Y-%m-%d"),
     }
 
 
@@ -514,7 +511,7 @@ def increment_daily_calls(count: int = 1):
     db.increment_daily_calls(count)
 
 
-async def summarise_batch_flex(articles, order: List[str] = None) -> List[Dict]:
+async def summarise_batch_flex(articles, order: list[str] = None) -> list[dict]:
     if not articles:
         return []
 
@@ -544,8 +541,8 @@ async def summarise_batch_flex(articles, order: List[str] = None) -> List[Dict]:
 
 
 async def summarise_all_flex(
-    articles, order: List[str] = None, batch_size: int = None
-) -> List[Dict]:
+    articles, order: list[str] = None, batch_size: int = None
+) -> list[dict]:
     if batch_size is None:
         batch_size = config.BATCH_SIZE
 
@@ -568,7 +565,7 @@ async def summarise_all_flex(
     return all_summaries
 
 
-def filter_by_score(summaries: List[Dict], min_score: int = None) -> List[Dict]:
+def filter_by_score(summaries: list[dict], min_score: int = None) -> list[dict]:
     if min_score is None:
         min_score = config.MIN_RELEVANCE_SCORE
 

@@ -1,11 +1,7 @@
 """SQLite state management for production-grade persistence."""
 
-import json
 import sqlite3
-from datetime import datetime, timezone
-from typing import List, Dict, Optional
-
-import config
+from datetime import UTC, datetime
 
 
 class StateDB:
@@ -113,7 +109,7 @@ class StateDB:
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 "INSERT OR IGNORE INTO seen_urls (url_hash, url, source, seen_at) VALUES (?, ?, ?, ?)",
-                (url_hash, url, source, datetime.now(timezone.utc).isoformat()),
+                (url_hash, url, source, datetime.now(UTC).isoformat()),
             )
 
     def get_seen_count(self) -> int:
@@ -125,15 +121,13 @@ class StateDB:
         """Remove URLs older than N days to prevent DB bloat."""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
-                "DELETE FROM seen_urls WHERE seen_at < datetime('now', '-{} days')".format(
-                    days
-                )
+                f"DELETE FROM seen_urls WHERE seen_at < datetime('now', '-{days} days')"
             )
 
     # --- Daily LLM Calls ---
 
     def get_daily_call_count(self) -> int:
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(UTC).strftime("%Y-%m-%d")
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
                 "SELECT count FROM daily_calls WHERE date = ?", (today,)
@@ -142,7 +136,7 @@ class StateDB:
             return row[0] if row else 0
 
     def increment_daily_calls(self, count: int = 1):
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(UTC).strftime("%Y-%m-%d")
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 "INSERT INTO daily_calls (date, count) VALUES (?, ?) "
@@ -152,7 +146,7 @@ class StateDB:
 
     # --- Source State ---
 
-    def get_last_fetch(self, source: str) -> Optional[str]:
+    def get_last_fetch(self, source: str) -> str | None:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
                 "SELECT last_fetch FROM source_state WHERE source = ?", (source,)
@@ -174,7 +168,7 @@ class StateDB:
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 "INSERT INTO error_log (timestamp, module, error, context) VALUES (?, ?, ?, ?)",
-                (datetime.now(timezone.utc).isoformat(), module, str(error), context),
+                (datetime.now(UTC).isoformat(), module, str(error), context),
             )
 
     # --- Delivery Log ---
@@ -187,7 +181,7 @@ class StateDB:
                 "INSERT INTO delivery_log (timestamp, article_url, article_title, telegram_chat_id, status) "
                 "VALUES (?, ?, ?, ?, ?)",
                 (
-                    datetime.now(timezone.utc).isoformat(),
+                    datetime.now(UTC).isoformat(),
                     article_url,
                     article_title,
                     chat_id,
@@ -233,7 +227,7 @@ class StateDB:
                     video.get("likes", 0),
                     video.get("comment_count", 0),
                     video.get("transcript", ""),
-                    datetime.now(timezone.utc).isoformat(),
+                    datetime.now(UTC).isoformat(),
                 ),
             )
 
@@ -246,7 +240,7 @@ class StateDB:
                        scraped_at = ?
                    WHERE video_id = ?""",
                 (views, likes, comment_count,
-                 datetime.now(timezone.utc).isoformat(), video_id),
+                 datetime.now(UTC).isoformat(), video_id),
             )
 
     def insert_youtube_comments(self, comments: list):
@@ -265,7 +259,7 @@ class StateDB:
                         c.get("text", ""),
                         c.get("like_count", 0),
                         c.get("published_at", ""),
-                        datetime.now(timezone.utc).isoformat(),
+                        datetime.now(UTC).isoformat(),
                     ),
                 )
 

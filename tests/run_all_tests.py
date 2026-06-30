@@ -1,8 +1,8 @@
 """Run all source tests sequentially and print a summary."""
 
 import asyncio
-import sys
 import os
+import sys
 import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))

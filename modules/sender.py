@@ -1,12 +1,10 @@
 import asyncio
 import logging
 from datetime import datetime
-from typing import List, Optional
 
 import httpx
 
 import config
-
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +24,7 @@ def _get_http_client() -> httpx.AsyncClient:
 
 async def _send_via_http(token: str, chat_id: str, text: str) -> bool:
     """Send message via direct HTTP POST to Telegram Bot API.
-    
+
     Bypasses python-telegram-bot library — works with proxy support.
     """
     url = f"{TELEGRAM_API}/bot{token}/sendMessage"
@@ -84,7 +82,7 @@ async def send_message(token: str, chat_id: str, text: str, max_retries: int = 3
     return False
 
 
-async def send_batch(messages: List[str], chat_id: str = None) -> int:
+async def send_batch(messages: list[str], chat_id: str = None) -> int:
     if not messages:
         return 0
 
@@ -114,7 +112,7 @@ async def send_batch(messages: List[str], chat_id: str = None) -> int:
     return sent_count
 
 
-async def send_error_alert(error_message: str, admin_chat_id: Optional[str] = None):
+async def send_error_alert(error_message: str, admin_chat_id: str | None = None):
     if not admin_chat_id or not config.TELEGRAM_BOT_TOKEN:
         return
 

@@ -1,8 +1,8 @@
 """Test arXiv fetcher — fetches 2 papers from 1 category."""
 
 import asyncio
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 

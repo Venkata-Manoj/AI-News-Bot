@@ -5,10 +5,7 @@ to prevent state loss on crashes and enable concurrent access.
 """
 import hashlib
 import re
-from datetime import datetime
-from typing import List
 
-import config
 from modules.db import db
 
 
@@ -21,39 +18,39 @@ def hash_url(url: str) -> str:
 
 class SeenManager:
     """Production-grade deduplication using SQLite.
-    
+
     Replaces JSON files to prevent corruption and enable
     safe concurrent access from multiple processes.
     """
-    
+
     def __init__(self):
         self.db = db
-    
+
     def is_seen(self, url_hash: str) -> bool:
         """Check if a URL has been processed."""
         return self.db.is_seen(url_hash)
-    
+
     def mark_seen(self, url_hash: str, url: str = "", source: str = ""):
         """Mark a URL as processed."""
         self.db.mark_seen(url_hash, url, source)
-    
-    def filter_new(self, articles: List) -> List:
+
+    def filter_new(self, articles: list) -> list:
         """Return only articles not yet processed."""
         new_articles = []
         for article in articles:
             # Ensure url_hash exists
             if not hasattr(article, 'url_hash'):
                 article.url_hash = hash_url(article.url)
-            
+
             if not self.is_seen(article.url_hash):
                 new_articles.append(article)
             else:
                 print(f"[Dedup] Skipping duplicate: {getattr(article, 'title', '')[:50]}...")
-        
+
         print(f"[Dedup] {len(new_articles)} new of {len(articles)} total")
         return new_articles
-    
-    def filter_by_keywords(self, articles: List, keywords: List[str] = None) -> List:
+
+    def filter_by_keywords(self, articles: list, keywords: list[str] = None) -> list:
         """Filter articles by AI-relevant keywords."""
         if keywords is None:
             keywords = [
@@ -63,7 +60,7 @@ class SeenManager:
                 "sora", "gemini", "mistral", "llama", "stable diffusion",
                 "huggingface", "benchmark", "sota", "agent", "rag",
             ]
-  
+
         filtered = []
         pattern = re.compile("|".join(keywords), re.IGNORECASE)
 
@@ -71,7 +68,7 @@ class SeenManager:
             text = f"{getattr(article, 'title', '')} {getattr(article, 'body', '')}"
             if pattern.search(text):
                 filtered.append(article)
-        
+
         print(f"[Dedup] {len(filtered)}/{len(articles)} passed keyword filter")
         return filtered
 
@@ -90,11 +87,11 @@ def mark_seen(url_hash: str):
     seen_manager.mark_seen(url_hash)
 
 
-def filter_new(articles: List) -> List:
+def filter_new(articles: list) -> list:
     """Filter out already-seen articles."""
     return seen_manager.filter_new(articles)
 
 
-def filter_by_keywords(articles: List, keywords: List[str] = None) -> List:
+def filter_by_keywords(articles: list, keywords: list[str] = None) -> list:
     """Filter articles by keywords."""
     return seen_manager.filter_by_keywords(articles, keywords)

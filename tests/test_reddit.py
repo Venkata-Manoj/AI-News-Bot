@@ -1,8 +1,8 @@
 """Test Reddit fetcher — fetches from 1 subreddit only."""
 
 import asyncio
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 

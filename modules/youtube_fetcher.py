@@ -16,8 +16,6 @@ import os
 import re
 import shutil
 from datetime import datetime
-from pathlib import Path
-from typing import Dict, List, Optional
 
 import aiohttp
 
@@ -86,7 +84,7 @@ def parse_vtt_timestamp(ts: str) -> float:
 
 async def get_channel_id(
     handle: str, api_key: str, session: aiohttp.ClientSession
-) -> Optional[str]:
+) -> str | None:
     """Resolve @handle to UC... channel ID."""
     handle = handle.strip()
     if not handle.startswith("@"):
@@ -127,7 +125,7 @@ async def fetch_video_ids(
     api_key: str,
     session: aiohttp.ClientSession,
     max_videos: int = 50,
-) -> List[str]:
+) -> list[str]:
     """Paginate through uploads playlist to get video IDs."""
     video_ids = []
     page_token = None
@@ -166,8 +164,8 @@ async def fetch_video_ids(
 
 
 async def fetch_video_details(
-    video_ids: List[str], api_key: str, session: aiohttp.ClientSession
-) -> List[Dict]:
+    video_ids: list[str], api_key: str, session: aiohttp.ClientSession
+) -> list[dict]:
     """Batch fetch video details (50 per API call)."""
     all_details = []
 
@@ -230,7 +228,7 @@ async def fetch_video_details(
 
 async def download_transcript(
     video_id: str, lang: str = "en", output_dir: str = None
-) -> Optional[str]:
+) -> str | None:
     """Download VTT subtitle via yt-dlp, return file content or None."""
     if output_dir is None:
         output_dir = VTT_DIR
@@ -241,7 +239,7 @@ async def download_transcript(
         existing = os.path.join(output_dir, f"{video_id}{suffix}")
         if os.path.exists(existing):
             logger.info(f"[YouTube] VTT cache hit: {video_id}")
-            with open(existing, "r", encoding="utf-8") as f:
+            with open(existing, encoding="utf-8") as f:
                 return f.read()
 
     # Check if yt-dlp is available (system PATH or venv Scripts)
@@ -282,7 +280,7 @@ async def download_transcript(
             stdout, stderr = await asyncio.wait_for(
                 process.communicate(), timeout=60
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             process.kill()
             await process.communicate()
             logger.warning(f"[YouTube] yt-dlp timed out for {video_id}")
@@ -292,7 +290,7 @@ async def download_transcript(
         for suffix in [f".{lang}.vtt", f".{lang}-orig.vtt"]:
             vtt_path = os.path.join(output_dir, f"{video_id}{suffix}")
             if os.path.exists(vtt_path):
-                with open(vtt_path, "r", encoding="utf-8") as f:
+                with open(vtt_path, encoding="utf-8") as f:
                     content = f.read()
                 logger.info(f"[YouTube] Downloaded transcript for {video_id}")
                 return content
@@ -305,7 +303,7 @@ async def download_transcript(
         return None
 
 
-def parse_vtt(file_content: str) -> Dict:
+def parse_vtt(file_content: str) -> dict:
     """Parse VTT content into segments with deduplication."""
     if not file_content:
         return {"segments": [], "fullText": ""}
@@ -354,7 +352,7 @@ def parse_vtt(file_content: str) -> Dict:
 # Stage 3: Chunk Transcripts
 # ============================================================
 
-def chunk_transcript(segments: List[Dict], video_id: str, title: str) -> List[Dict]:
+def chunk_transcript(segments: list[dict], video_id: str, title: str) -> list[dict]:
     """Split transcript into 500-word overlapping chunks."""
     if not segments:
         return []
@@ -406,7 +404,7 @@ def chunk_transcript(segments: List[Dict], video_id: str, title: str) -> List[Di
 
 async def fetch_comments(
     video_id: str, api_key: str, session: aiohttp.ClientSession, max_results: int = 5
-) -> List[Dict]:
+) -> list[dict]:
     """Fetch top comments for a video. Returns [] on 403 (disabled)."""
     url = f"{YOUTUBE_API_BASE}/commentThreads"
     params = {
@@ -459,8 +457,8 @@ async def fetch_channel_videos(
     fetch_video_comments: bool = True,
 ) -> list:
     """Full pipeline for one channel → returns list of Article objects."""
-    from modules.fetcher import Article
     from modules.db import db
+    from modules.fetcher import Article
 
     if max_videos is None:
         max_videos = getattr(config, "YOUTUBE_MAX_VIDEOS_PER_CHANNEL", 10)
@@ -574,7 +572,7 @@ async def fetch_channel_videos(
     return articles
 
 
-async def fetch_all_channels(channels: List[str], api_key: str) -> list:
+async def fetch_all_channels(channels: list[str], api_key: str) -> list:
     """Fetch all configured YouTube channels."""
     if not api_key:
         logger.warning("[YouTube] No YOUTUBE_API_KEY set, skipping YouTube source")
