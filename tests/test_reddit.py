@@ -4,11 +4,14 @@ import asyncio
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from modules.apify_fetcher import fetch_reddit
 
 
+@pytest.mark.asyncio
 async def test_reddit():
     print("=" * 60)
     print("TEST: Reddit Fetcher (public JSON API)")
@@ -30,10 +33,7 @@ async def test_reddit():
 
     print(f"\n{'=' * 60}")
     # 0 results is acceptable — the Reddit public API may return empty
-    if len(posts) > 0:
-        status = "PASSED"
-    else:
-        status = "PASSED (0 posts, expected when no matching content)"
+    status = "PASSED" if len(posts) > 0 else "PASSED (0 posts, expected when no matching content)"
     print(f"REDDIT TEST: {status}")
     print(f"{'=' * 60}")
     return True  # Always pass — 0 results is not a real failure

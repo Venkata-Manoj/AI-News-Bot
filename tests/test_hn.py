@@ -31,10 +31,7 @@ async def test_hn():
 
     print(f"\n{'=' * 60}")
     # 0 results is acceptable — the API may return empty when no matching content
-    if len(articles) > 0:
-        status = "PASSED"
-    else:
-        status = "PASSED (0 results, expected when no matching content)"
+    status = "PASSED" if len(articles) > 0 else "PASSED (0 results, expected when no matching content)"
     print(f"HN TEST: {status}")
     print(f"{'=' * 60}")
     return True  # Always pass — 0 results is not a real failure
