@@ -1,11 +1,60 @@
+"""Telegram message formatting with structured, visually clear output."""
+
 import re
 from datetime import datetime, timedelta, timezone
 
+# Source emoji mapping for quick visual scanning
+SOURCE_EMOJI = {
+    # AI Labs & Companies
+    "openai": "🤖",
+    "anthropic": "🧠",
+    "google": "🔬",
+    "deepmind": "🔬",
+    "huggingface": "🤗",
+    "mistral": "🌬️",
+    "meta": "📘",
+    "cohere": "🟢",
+    "stability": "🎨",
+    # Tech Media
+    "techcrunch": "📰",
+    "venturebeat": "📰",
+    "theverge": "📰",
+    "technology review": "📰",
+    "wired": "📰",
+    "arstechnica": "📰",
+    "marktechpost": "📰",
+    "the-decoder": "📰",
+    # Platforms
+    "github": "🐙",
+    "reddit": "💬",
+    "hackernews": "🎯",
+    "hn": "🎯",
+    "twitter": "🐦",
+    "x": "🐦",
+    "youtube": "▶️",
+    "arxiv": "📄",
+    # Generic
+    "nvidia": "🟢",
+    "xai": "⚡",
+}
+
+# Source category colors (represented as emoji)
+SOURCE_CATEGORIES = {
+    "company": "🏢",
+    "media": "📡",
+    "research": "🔬",
+    "social": "💬",
+    "video": "▶️",
+    "unknown": "📌",
+}
+
+SEPARATOR = "━" * 30
+
 
 def escape_md(text: str) -> str:
+    """Escape MarkdownV2 special characters for Telegram."""
     if not text:
         return ""
-    # Only escape special chars that break MarkdownV2
     return (
         text.replace("_", "\\_")
         .replace("*", "\\*")
@@ -14,43 +63,79 @@ def escape_md(text: str) -> str:
     )
 
 
-def format_article(article, summary: str) -> str:
-    title = escape_md(article.title[:100])
-    summary = escape_md(summary[:200])  # Limit summary
+def get_source_emoji(source: str) -> str:
+    """Get appropriate emoji for a source name."""
+    if not source:
+        return "📌"
 
-    # Convert source to readable format
-    source = (
-        article.source.replace("r/", "r/")
-        .replace("HackerNews", "HN")
-        .replace("arXiv:", "arXiv ")
-    )
+    source_lower = source.lower().strip()
 
-    # IST timestamp
+    # Direct match first
+    for key, emoji in SOURCE_EMOJI.items():
+        if key in source_lower:
+            return emoji
+
+    # Categorize by source type
+    if source_lower.startswith("r/"):
+        return "💬"
+    if "arxiv" in source_lower:
+        return "📄"
+    if source_lower == "youtube":
+        return "▶️"
+
+    return "📌"
+
+
+def get_source_label(source: str) -> str:
+    """Get a clean readable label for the source."""
+    if not source:
+        return "source"
+
+    s = source.replace("arXiv:", "arXiv ")
+    s = s.replace("r/", "r/")
+    s = s.replace("HackerNews", "HN")
+
+    # Handle RSS feed titles
+    if "/" in s and not s.startswith("r/"):
+        parts = s.split("/")
+        s = parts[-1] if parts[-1] else parts[-2]
+
+    # Clean up common platforms
+    s = s.replace("www.", "").strip()
+
+    return s[:30]
+
+
+def format_batch_header(
+    count: int, sources: list[str], timestamp: str | None = None
+) -> str:
+    """Create a batch header message for the start of a delivery run."""
     ist_offset = timezone(timedelta(hours=5, minutes=30))
     ist_now = datetime.now(ist_offset)
-    timestamp = ist_now.strftime("%H:%M IST")
+    time_str = timestamp or ist_now.strftime("%d %b %H:%M")
 
-    url = article.url
+    # Get unique source emojis for the header
+    source_emojis = list(
+        dict.fromkeys(get_source_emoji(s) for s in sources if s)
+    )
+    emoji_str = " ".join(source_emojis) if source_emojis else "🤖"
 
-    # Cleaner format: Title, Summary, "Read here", Timestamp
-    message = f"""{title}
-
-{summary}
-
-[Read here]({url})
-{timestamp} | {source}"""
-
-    return message
+    header = (
+        f"{emoji_str} **AI News Brief — {time_str}**\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"{count} storie{'s' if count != 1 else 'y'} this cycle"
+    )
+    return header
 
 
-def format_youtube_article(article, summary: str) -> str:
+async def format_youtube_article(article, summary: str) -> str:
     """Format a YouTube video for Telegram with rich metadata."""
     yt = getattr(article, "youtube_data", None)
     if not yt:
         return format_article(article, summary)
 
-    title = escape_md(article.title[:100])
-    summary = escape_md(summary[:250])
+    title = article.title[:120] if article.title else "Untitled"
+    summary = summary[:300] if summary else ""
 
     # IST timestamp
     ist_offset = timezone(timedelta(hours=5, minutes=30))
@@ -60,35 +145,36 @@ def format_youtube_article(article, summary: str) -> str:
     # Stats line
     stats_parts = []
     if yt.get("views_display"):
-        stats_parts.append(f"{yt['views_display']} views")
+        stats_parts.append(f"👁️ {yt['views_display']} views")
     if yt.get("likes_display"):
-        stats_parts.append(f"{yt['likes_display']} likes")
+        stats_parts.append(f"👍 {yt['likes_display']}")
     if yt.get("duration_display"):
-        stats_parts.append(yt["duration_display"])
-    stats_line = " · ".join(stats_parts)
+        stats_parts.append(f"⏱️ {yt['duration_display']}")
+    stats_line = "  ".join(stats_parts)
 
-    # Tags line (max 4 tags)
+    # Tags line (max 4)
     tags = yt.get("tags", [])[:4]
-    tags_line = " ".join(f"#{escape_md(t.replace(' ', ''))}" for t in tags) if tags else ""
+    tags_line = (
+        "🏷️ " + " ".join(f"#{tag.replace(' ', '')}" for tag in tags)
+        if tags
+        else ""
+    )
 
     # Top comment
     comment_line = ""
     top_comment = yt.get("top_comment")
     if top_comment and top_comment.get("text"):
-        # Strip HTML from comment, truncate
-        comment_text = re.sub(r"<[^>]+>", "", top_comment["text"])
-        comment_text = escape_md(comment_text[:120])
-        author = escape_md(top_comment.get("author", "")[:30])
+        comment_text = re.sub(r"<[^>]+>", "", top_comment["text"])[:150]
+        author = top_comment.get("author", "")[:30]
         likes = top_comment.get("like_count", 0)
-        comment_line = f'\n💬 "{comment_text}" — {author}'
+        comment_line = f'💬 "{comment_text}" — {author}'
         if likes > 0:
             comment_line += f" ({likes} 👍)"
 
-    # Channel name
-    channel = escape_md(yt.get("channel_title", ""))
+    channel = yt.get("channel_title", "")
 
-    # Build message
-    lines = [f"🎬 {title}"]
+    lines = ["▶️ **" + title + "**"]
+    lines.append("")
 
     if channel:
         lines.append(f"📺 {channel}")
@@ -96,33 +182,74 @@ def format_youtube_article(article, summary: str) -> str:
     lines.append(f"\n📝 {summary}")
 
     if stats_line:
-        lines.append(f"\n📊 {stats_line}")
-
+        lines.append(f"\n{stats_line}")
     if tags_line:
-        lines.append(f"🏷️ {tags_line}")
-
+        lines.append(f"\n{tags_line}")
     if comment_line:
-        lines.append(comment_line)
+        lines.append(f"\n{comment_line}")
 
-    lines.append(f"\n🔗 Watch: {article.url}")
-    lines.append(f"⏰ {timestamp} | youtube")
+    lines.append("")
+    lines.append(f"🔗 [Watch on YouTube]({article.url})")
+    lines.append(f"⏰ {timestamp}  ·  ▶️ youtube")
 
     return "\n".join(lines)
 
 
-def format_batch(articles_summaries: list) -> list[str]:
+def format_article(article, summary: str) -> str:
+    """Format an article for Telegram with structured output."""
+    title = article.title[:120] if article.title else "Untitled"
+    summary = summary[:300] if summary else ""
+
+    # Source handling
+    source = article.source or "unknown"
+    emoji = get_source_emoji(source)
+    label = get_source_label(source)
+
+    # IST timestamp
+    ist_offset = timezone(timedelta(hours=5, minutes=30))
+    ist_now = datetime.now(ist_offset)
+    timestamp = ist_now.strftime("%H:%M IST")
+
+    url = article.url
+
+    # Build structured message
+    lines = [
+        f"{emoji} **{title}**",
+        "",
+        f"{summary}",
+        "",
+        f"🔗 [Read full article]({url})",
+        f"⏰ {timestamp}  ·  {emoji} {label}",
+    ]
+
+    return "\n".join(lines)
+
+
+def format_batch(articles_summaries: list, include_header: bool = True) -> list[str]:
+    """Format a batch of articles for sending. Optionally preprends a header."""
     messages = []
+
+    # Collect sources for header
+    sources = []
 
     for item in articles_summaries:
         article = item.get("article")
         summary = item.get("summary", "")
 
         if article and summary:
-            # Route to YouTube-specific formatter when appropriate
+            if article.source:
+                sources.append(article.source)
+
             if getattr(article, "source", "") == "youtube":
                 message = format_youtube_article(article, summary)
             else:
                 message = format_article(article, summary)
+
             messages.append(message)
+
+    # Prepend batch header
+    if include_header and messages:
+        header = format_batch_header(len(messages), sources)
+        messages.insert(0, header)
 
     return messages
