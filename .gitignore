@@ -7,4 +7,5 @@ data/
 logs/
 *.pyc
 *.log
-*.vtt
+*.vtt.coverage
+.coverage
