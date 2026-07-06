@@ -1,0 +1,29 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# Data & logs — managed via Docker volumes
+data/
+logs/
+
+# IDE
+.vscode/
+.idea/
+
+# Env (mounted at runtime via docker-compose)
+.env
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml

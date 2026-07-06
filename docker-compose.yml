@@ -1,0 +1,17 @@
+services:
+  ai-news-bot:
+    build: .
+    container_name: ai-news-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Persist SQLite database and logs across restarts
+      - bot_data:/app/data
+      - bot_logs:/app/logs
+    # Run in scheduled mode on startup
+    command: ["--schedule"]
+
+volumes:
+  bot_data:
+  bot_logs:
