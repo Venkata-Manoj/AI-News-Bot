@@ -8,7 +8,7 @@ import asyncio
 import logging
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -54,7 +54,7 @@ def log_pipeline_run(
 
 async def run_pipeline():
     """Execute the full pipeline: fetch -> dedup -> LLM -> Telegram."""
-    start_time = datetime.utcnow()
+    start_time = datetime.now(timezone.utc)
     logger.info(f"[Pipeline] Starting at {start_time.isoformat()}")
 
     try:
@@ -113,7 +113,7 @@ async def run_pipeline():
 
         sent_count = await sender.send_batch(messages)
         llm_calls = llm.get_daily_call_count()
-        duration = (datetime.utcnow() - start_time).total_seconds()
+        duration = (datetime.now(timezone.utc) - start_time).total_seconds()
 
         # 8. Log delivery
         for article in relevant:
@@ -169,7 +169,7 @@ def setup_scheduler():
         minutes=FETCH_INTERVAL_MINUTES,
         id="ai_news_pipeline",
         name="main_pipeline",
-        next_run_time=datetime.utcnow(),
+        next_run_time=datetime.now(timezone.utc),
         replace_existing=True,
     )
 
