@@ -70,16 +70,17 @@ def get_source_emoji(source: str) -> str:
 
     source_lower = source.lower().strip()
 
-    # Direct match first
-    for key, emoji in SOURCE_EMOJI.items():
-        if key in source_lower:
-            return emoji
-
-    # Categorize by source type
+    # Categorize by source type (check specific patterns before generic substring match)
     if source_lower.startswith("r/"):
         return "💬"
     if "arxiv" in source_lower:
         return "📄"
+
+    # Direct match against SOURCE_EMOJI keys
+    for key, emoji in SOURCE_EMOJI.items():
+        if key in source_lower:
+            return emoji
+
     if source_lower == "youtube":
         return "▶️"
 
@@ -128,7 +129,7 @@ def format_batch_header(
     return header
 
 
-async def format_youtube_article(article, summary: str) -> str:
+def format_youtube_article(article, summary: str) -> str:
     """Format a YouTube video for Telegram with rich metadata."""
     yt = getattr(article, "youtube_data", None)
     if not yt:
