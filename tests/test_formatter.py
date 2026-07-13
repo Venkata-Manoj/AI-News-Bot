@@ -8,8 +8,6 @@ All tests are pure unit tests with no network access required.
 import os
 import sys
 
-import pytest
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from modules.formatter import (
@@ -22,7 +20,6 @@ from modules.formatter import (
     get_source_emoji,
     get_source_label,
 )
-
 
 # ── Fake article helpers ───────────────────────────────────────────────────
 
@@ -310,7 +307,7 @@ class TestFormatArticle:
         article = make_article(title=long_title)
         result = format_article(article, "Short summary")
         assert ("A" * 120) in result
-        assert not ("A" * 130) in result
+        assert ("A" * 130) not in result
 
     def test_format_article_long_summary(self):
         """Summary longer than 300 chars should be truncated."""
@@ -318,7 +315,7 @@ class TestFormatArticle:
         article = make_article()
         result = format_article(article, long_summary)
         assert ("B" * 300) in result
-        assert not ("B" * 400) in result
+        assert ("B" * 400) not in result
 
     def test_format_article_source_emoji_matches(self):
         """Source emoji should match the article's source."""
