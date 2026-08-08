@@ -1,4 +1,4 @@
-feedparser==6.0.12
+feedparser==6.0.14
 praw==8.0.2
 google-generativeai==0.8.6
 python-telegram-bot==22.8
