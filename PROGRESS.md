@@ -42,3 +42,23 @@
 - [ ] Unit tests for `modules/llm.py` (complex, needs provider mocking)
 - [ ] Unit tests for `modules/dispatcher.py`
 - [ ] Unit tests for `modules/youtube_fetcher.py`
+
+## 2026-08-20 — Offline unit-test suite for llm/dispatcher/youtube_fetcher + CI gate
+
+### Completed
+- Added `tests/unit/` — fully mocked, network-free unit tests (no API keys) for the three modules previously flagged "needs tests" in PROGRESS.md / repo-memory.md:
+  - `tests/unit/test_llm_parse.py` — `parse_response` multi-stage JSON-repair (clean array, dict-with-list, markdown fence, array-extraction, malformed first-level repair, last-resort object extraction, empty/None), `build_prompt` (indexing, 400-char body truncation, missing-body placeholder), `filter_by_score`, `get_provider` priority/availability, `summarise_batch_flex` index→article mapping.
+  - `tests/unit/test_youtube_utils.py` — `parse_iso_duration`, `format_duration`, `format_count`, `parse_vtt_timestamp`, `parse_vtt` (segment parsing + deduplication), `chunk_transcript`, `get_uploads_playlist_id`.
+  - `tests/unit/test_dispatcher_unit.py` — `AsyncDispatcher` dedup-on-enqueue, batch short-circuits (no summaries / filtered out / empty format), success accounting (`items_processed`, `db.log_delivery`), sender-error handling (`items_failed`, `db.log_error`), lifecycle (`start`/`stop`/`get_stats`).
+- Added `unit-test` CI job (`.github/workflows/ci.yml`) that runs `pytest tests/unit/` with `--cov=modules` and **fails the build on error**, finally gating the repo on real regression protection (the old `test` job intentionally runs live source smoke tests with `continue-on-error`).
+
+### Impact
+- **54 new unit tests pass** (199 total now: 145 existing + 54 new, 1 skipped)
+- Closes three long-standing "needs tests" gaps for `llm.py`, `dispatcher.py`, `youtube_fetcher.py`
+- Coverage reporting is now available locally (pytest-cov), addressing the "Coverage reporting" remaining item
+- New CI job gives deterministic, network-independent regression protection
+
+### Remaining
+- [ ] Coverage reporting upload (Codecov/similar)
+- [ ] Docker image for easy deployment
+- [ ] Broaden unit coverage (fetcher.py, apify_fetcher.py, LLM provider call paths)

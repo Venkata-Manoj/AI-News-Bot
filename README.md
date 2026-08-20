@@ -143,13 +143,21 @@ ai-news-bot/
 │   └── dispatcher.py          # Async dispatch queue
 │
 ├── tests/
-│   ├── run_all_tests.py       # Master test runner
+│   ├── run_all_tests.py       # Master test runner (live source smoke tests)
 │   ├── test_rss_feed.py       # RSS validation
 │   ├── test_hn.py             # Hacker News validation
 │   ├── test_arxiv.py          # arXiv validation
 │   ├── test_reddit.py         # Reddit validation
 │   ├── test_twitter.py        # Twitter/Nitter validation
-│   └── test_youtube.py        # YouTube full pipeline test
+│   ├── test_youtube.py        # YouTube full pipeline test
+│   ├── test_db.py             # SQLite state unit tests
+│   ├── test_dedup.py          # Deduplication unit tests
+│   ├── test_sender.py         # Telegram sender unit tests (mocked)
+│   ├── test_formatter.py      # Message formatter unit tests
+│   └── unit/                  # Offline, mocked unit tests (no network/keys)
+│       ├── test_llm_parse.py        # LLM JSON-repair, prompt, scoring
+│       ├── test_youtube_utils.py    # YouTube helper functions
+│       └── test_dispatcher_unit.py  # AsyncDispatcher logic
 │
 └── data/
     ├── bot.db                 # SQLite state database
@@ -161,15 +169,15 @@ ai-news-bot/
 ## 🧪 Testing
 
 ```bash
-# Run all source tests (no LLM calls, no Telegram sends)
+# Run all source smoke tests (live fetches; no LLM calls/Telegram sends)
 python tests/run_all_tests.py
 
-# Run individual tests
-python tests/test_youtube.py
-python tests/test_rss_feed.py
-python tests/test_reddit.py
-```
+# Run the offline unit suite (fully mocked — no network, no API keys)
+python -m pytest tests/unit/ -q
 
+# Run everything
+python -m pytest tests/ -q
+```
 ### Test Results (v3.0)
 
 | Source | Status | Time |
