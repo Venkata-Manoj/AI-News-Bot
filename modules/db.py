@@ -1,5 +1,6 @@
 """SQLite state management for production-grade persistence."""
 
+import os
 import sqlite3
 from datetime import UTC, datetime
 
@@ -9,6 +10,11 @@ class StateDB:
 
     def __init__(self, db_path: str = "data/bot.db"):
         self.db_path = db_path
+        # Ensure the parent directory exists before connecting (fresh clones /
+        # Docker deploys may not have the gitignored data/ dir present yet).
+        parent = os.path.dirname(self.db_path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
         self._init_db()
 
     def _init_db(self):
