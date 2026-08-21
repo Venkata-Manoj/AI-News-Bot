@@ -62,3 +62,28 @@
 - [ ] Coverage reporting upload (Codecov/similar)
 - [ ] Docker image for easy deployment
 - [ ] Broaden unit coverage (fetcher.py, apify_fetcher.py, LLM provider call paths)
+
+## 2026-08-21 — Bootstrap Karpathy-style LLM Wiki (repository memory)
+
+### Completed
+- Created `wiki/` — Karpathy LLM-Wiki pattern as the project's primary long-term memory (HAES mandate)
+  - `wiki/SCHEMA.md` — domain conventions + tag taxonomy (8 top-level tags)
+  - `wiki/index.md` — sectioned catalog (6 pages)
+  - `wiki/log.md` — append-only action log
+  - `wiki/entities/ai-news-bot.md` — project entity page (purpose, status, version, maturity)
+  - `wiki/concepts/ai-news-bot-architecture.md` — pipeline + module table + gotchas
+  - `wiki/concepts/llm-provider-fallback.md` — 6-provider chain + JSON-repair behavior
+  - `wiki/concepts/testing-strategy.md` — two-tier tests + CI gate (199 pass / 1 skip)
+  - `wiki/concepts/open-technical-debt.md` — resolved + open gaps, incl. held Dependabot #16
+- Marked `.hermes/repo-memory.md` as superseded (last updated 2026-07-12; stale: claimed 145 tests)
+
+### Impact
+- Establishes compounding, cross-referenced memory so future HAES sessions avoid duplicate work
+- All 6 pages use `[[wikilinks]]` (>=2 outbound each) and YAML frontmatter
+- None of the 7 managed repos previously had an LLM Wiki; this is the first
+
+### Remaining
+- [ ] Roll the same `wiki/` pattern out to data-analysis, transcribo, web-crawl, sketch-portfolio, portfolio, Capstone-Forage
+- [ ] Coverage reporting upload (Codecov/similar)
+- [ ] Docker image for easy deployment
+- [ ] Broaden unit coverage (fetcher.py, apify_fetcher.py, LLM provider call paths)
