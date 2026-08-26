@@ -87,3 +87,25 @@
 - [ ] Coverage reporting upload (Codecov/similar)
 - [ ] Docker image for easy deployment
 - [ ] Broaden unit coverage (fetcher.py, apify_fetcher.py, LLM provider call paths)
+
+## 2026-08-26 — Offline unit tests for dedup engine (CI-gated suite)
+
+### Completed
+- Added `tests/unit/test_dedup_unit.py` — deterministic, fully mocked unit tests for `modules/dedup.py` (the core deduplication engine that prevents duplicate Telegram deliveries):
+  - `hash_url`: empty/None → `""`, stable hex digest, deterministic, distinct URLs distinct hashes
+  - `filter_by_keywords`: empty passthrough, title/body match, irrelevant drop, case-insensitive, custom keywords, missing-attribute safety
+  - `SeenManager.filter_new`: keeps all-new, drops seen, mixed seen/new, back-fills missing `url_hash` from URL, delegates `is_seen`/`mark_seen` to the DB store
+- The DB collaborator is mocked, so no SQLite writes occur — fully offline and CI-safe.
+
+### Impact
+- **18 new unit tests pass** (gated `tests/unit/` suite now 72 tests, was 54)
+- `modules/dedup.py` coverage in the gated suite: **0% → 93%** (only 3 delegation wrappers missed)
+- Repo TOTAL coverage (gated, `--cov=modules`): **28% → 32%**
+- Closes a gap flagged in the roadmap ("test coverage expansion") and PROGRESS.md ("Broaden unit coverage")
+- Both CI jobs protected: `ruff check .` clean + `pytest tests/unit/` green, verified locally before push
+
+### Remaining
+- [ ] Roll the same `wiki/` pattern out to data-analysis, transcribo, web-crawl, sketch-portfolio, portfolio, Capstone-Forage
+- [ ] Coverage reporting upload (Codecov/similar)
+- [ ] Docker image for easy deployment
+- [ ] Broaden unit coverage (fetcher.py, apify_fetcher.py, LLM provider call paths)
