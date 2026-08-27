@@ -22,11 +22,14 @@ deterministic, network-free offline unit suite that gates CI.
    - `test_llm_parse.py` — JSON-repair, prompt build, scoring, provider selection
    - `test_youtube_utils.py` — duration/count formatting, VTT parse, chunking
    - `test_dispatcher_unit.py` — AsyncDispatcher dedup/batching/lifecycle
+- `test_fetcher_utils.py` — `strip_html`, `normalise_url`, `hash_url`, `extract_rss_text`,
+  `Article` (fetcher.py) + `is_ai_related` (apify_fetcher.py) pure-logic coverage
 
-## Status (2026-08-20)
-- **199 tests pass**, 1 skipped (YouTube API key required)
-- Offline `unit-test` CI job runs `pytest tests/unit/ --cov=modules` and **fails the build on
-  error** — real regression protection independent of network.
+## Status (2026-08-27)
+- **199 tests pass**, 1 skipped (YouTube API key required) — live suite unchanged
+- Offline `unit-test` CI job: gated `tests/unit/` suite now **104 tests** (was 72 on 2026-08-26),
+  ruff clean; `pytest tests/unit/ --cov=modules` **fails the build on error** — real regression
+  protection independent of network.
 - `pytest-cov` available locally (coverage reporting was a prior "remaining" item, now
   addressable; upload to Codecov still pending — see [[open-technical-debt]]).
 
@@ -34,6 +37,8 @@ deterministic, network-free offline unit suite that gates CI.
 - 2026-07-04: db/dedup/sender unit tests (~45% coverage)
 - 2026-07-12: formatter.py 70 tests (0→full); bugfixes (arXiv emoji, async YouTube)
 - 2026-08-20: llm/dispatcher/youtube_fetcher offline suite (+54 tests) + CI gate
+- 2026-08-26: dedup engine offline suite (+18 tests); gated suite 54 → 72
+- 2026-08-27: fetcher/apify pure-logic offline suite (+32 tests); gated suite 72 → 104
 
 ## Related
 - Pipeline: [[ai-news-bot-architecture]]
