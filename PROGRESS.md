@@ -108,4 +108,37 @@
 - [ ] Roll the same `wiki/` pattern out to data-analysis, transcribo, web-crawl, sketch-portfolio, portfolio, Capstone-Forage
 - [ ] Coverage reporting upload (Codecov/similar)
 - [ ] Docker image for easy deployment
-- [ ] Broaden unit coverage (fetcher.py, apify_fetcher.py, LLM provider call paths)
+- [x] Broaden unit coverage — `fetcher.py` + `apify_fetcher.py` pure logic (2026-08-27)
+- [ ] Broaden unit coverage — LLM provider *call* paths (live HTTP, harder to mock deterministically)
+
+## 2026-08-27 — Offline unit tests for fetcher/apify pure logic (CI-gated suite)
+
+### Completed
+- Added `tests/unit/test_fetcher_utils.py` — deterministic, network-free unit tests for the
+  previously-untested pure helpers in `modules/fetcher.py` and `modules/apify_fetcher.py`:
+  - `fetcher.strip_html` — empty/None → "", tag stripping, whitespace collapse
+  - `fetcher.normalise_url` — drops query/fragment, preserves scheme://netloc/path
+  - `fetcher.hash_url` — md5(normalise(url)); empty input → md5 of empty string (distinct from
+    `dedup.hash_url` which returns ""); deterministic; query/fragment-tolerant
+  - `fetcher.extract_rss_text` — summary → description → content fallback chain + 400-char cap
+  - `fetcher.Article` — URL normalisation + derived `url_hash` + default score/published
+  - `apify_fetcher.is_ai_related` — keyword membership, case-insensitive, empty/None/irrelevant → False
+- The `_Entry` fixture mirrors feedparser's AttributeError-on-missing-attr contract (critical: a
+  naive `getattr`-returns-None stub would silently break the `hasattr` branch chain).
+
+### Impact
+- **+32 new unit tests pass** (gated `tests/unit/` suite now 104 tests, was 72)
+- 3 tests initially failed — self-review showed all 3 were fixture bugs, not production bugs
+  (wrong assumption that `fetcher.hash_url("")` returns ""; `_Entry` returning None instead of
+  raising AttributeError). Production code was correct; fixtures fixed to match real behavior.
+- Closes the `fetcher.py` + `apify_fetcher.py` slice of the "Broaden unit coverage" roadmap item
+  (LLM provider *call* paths remain open)
+- Both CI jobs protected: `ruff check .` clean + `pytest tests/unit/` green, verified locally
+  before push. New file is auto-included by the `unit-test` job's `pytest tests/unit/` glob.
+- No production code changed — pure test addition, zero regression risk to the running bot
+
+### Remaining
+- [ ] Roll the same `wiki/` pattern out to data-analysis, transcribo, web-crawl, sketch-portfolio, portfolio, Capstone-Forge
+- [ ] Coverage reporting upload (Codecov/similar)
+- [ ] Docker image for easy deployment
+- [ ] Broaden unit coverage — LLM provider *call* paths (live HTTP, harder to mock deterministically)
