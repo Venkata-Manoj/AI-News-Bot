@@ -142,3 +142,44 @@
 - [ ] Coverage reporting upload (Codecov/similar)
 - [ ] Docker image for easy deployment
 - [ ] Broaden unit coverage — LLM provider *call* paths (live HTTP, harder to mock deterministically)
+
+## 2026-08-29 — Offline unit tests for LLM provider fallback orchestration (CI-gated suite)
+
+### Completed
+- Added `tests/unit/test_llm_fallback.py` — deterministic, network-free unit tests for the
+  previously-untested **provider resilience core** of `modules/llm.py` (the 6-provider
+  failover that the prior `test_llm_parse.py` pure-path suite did not cover):
+  - `call_with_fallback` — first-available result returned; generic-exception fall-through;
+    QUOTA/429 error triggers next provider; unavailable provider skipped; unknown provider in
+    order skipped without error; falsy (`""`) result falls through; all-fail → `None`; no
+    providers → `None`
+  - `call_openrouter` / `call_groq` — 200 success returns `choices[].message.content`; 429 raises
+    `QUOTA_EXCEEDED`; non-200 raises; POSTs to the correctly configured provider endpoint
+  - `call_nvidia` — 200 success; 404 raises; 429 retries then returns `None`; 429-then-success
+    recovers. `httpx.AsyncClient` replaced with an in-memory fake; `increment_daily_calls`
+    stubbed → no SQLite side effects, fully CI-safe.
+- **Discovered a latent production bug** (documented, not fixed — this is a test-only PR):
+  `call_nvidia` raises the hard 404 *inside* its own `try/except` loop and swallows it,
+  returning `None`. Per the dispatch contract a 404 (model not found) should propagate so the
+  fallback chain tries the next provider. Encoded as `test_404_raises` with
+  `xfail(strict=True)` so it flips to XPASS once the production code stops swallowing 4xx.
+- All 4 `assert False` branches in "should-raise" tests replaced with `pytest.fail` (ruff B011);
+  imports sorted (ruff I001). `pytest` imported explicitly.
+- Suite validated locally with the exact CI commands (`ruff check .` clean +
+  `pytest tests/unit/ -q --cov=modules`): **120 passed, 1 xfailed** (gated `tests/unit/`
+  suite **104 → 121 tests**).
+
+### Impact
+- Closes the final slice of the "Broaden unit coverage" roadmap item — the LLM provider
+  *call/dispatch* paths, the only remaining ungated logic in `modules/llm.py` after the
+  2026-08-20/26/27 sessions. (`formatter.py` is the last untouched module.)
+- The 6-provider fallback chain — the bot's core resilience feature — now has direct
+  regression protection (order selection, quota fall-through, endpoint correctness).
+- Net: +17 tests on this branch (104 → 121); ruff clean; gated suite still fail-on-error.
+- No production code changed — pure test addition, zero regression risk to the running bot.
+
+### Remaining
+- [ ] Roll the same `wiki/` pattern out to data-analysis, transcribo, web-crawl, sketch-portfolio, portfolio, Capstone-Forge
+- [ ] Coverage reporting upload (Codecov/similar)
+- [ ] Docker image for easy deployment
+- [x] Broaden unit coverage — LLM provider *call* paths (2026-08-29; only `formatter.py` + the `call_nvidia` 404-swallow fix remain)

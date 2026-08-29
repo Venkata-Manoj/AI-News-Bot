@@ -24,14 +24,20 @@ deterministic, network-free offline unit suite that gates CI.
    - `test_dispatcher_unit.py` — AsyncDispatcher dedup/batching/lifecycle
 - `test_fetcher_utils.py` — `strip_html`, `normalise_url`, `hash_url`, `extract_rss_text`,
   `Article` (fetcher.py) + `is_ai_related` (apify_fetcher.py) pure-logic coverage
+- `test_llm_fallback.py` (2026-08-29) — `call_with_fallback` orchestration (order, availability,
+  quota fall-through, falsy-result fall-through, all-fail→None), `call_openrouter`/`call_groq`/
+  `call_nvidia` HTTP handling (200/429/404/retry), all with `httpx` faked → no network/SQLite
 
-## Status (2026-08-27)
+## Status (2026-08-29)
 - **199 tests pass**, 1 skipped (YouTube API key required) — live suite unchanged
-- Offline `unit-test` CI job: gated `tests/unit/` suite now **104 tests** (was 72 on 2026-08-26),
-  ruff clean; `pytest tests/unit/ --cov=modules` **fails the build on error** — real regression
-  protection independent of network.
+- Offline `unit-test` CI job: gated `tests/unit/` suite now **121 tests** (was 104 on 2026-08-27;
+  120 passed + 1 xfailed documenting a latent `call_nvidia` 404-swallow bug), ruff clean;
+  `pytest tests/unit/ --cov=modules` **fails the build on error** — real regression protection
+  independent of network.
 - `pytest-cov` available locally (coverage reporting was a prior "remaining" item, now
   addressable; upload to Codecov still pending — see [[open-technical-debt]]).
+- Last untouched module: `formatter.py` (its behavior is already covered by `tests/test_formatter.py`,
+  the live suite, so gated coverage is the only gap).
 
 ## History
 - 2026-07-04: db/dedup/sender unit tests (~45% coverage)
@@ -39,6 +45,7 @@ deterministic, network-free offline unit suite that gates CI.
 - 2026-08-20: llm/dispatcher/youtube_fetcher offline suite (+54 tests) + CI gate
 - 2026-08-26: dedup engine offline suite (+18 tests); gated suite 54 → 72
 - 2026-08-27: fetcher/apify pure-logic offline suite (+32 tests); gated suite 72 → 104
+- 2026-08-29: LLM provider fallback orchestration offline suite (+17 tests); gated suite 104 → 121 (1 xfail = latent call_nvidia 404 bug)
 
 ## Related
 - Pipeline: [[ai-news-bot-architecture]]

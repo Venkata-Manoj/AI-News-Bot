@@ -27,3 +27,16 @@
   None instead of raising AttributeError) — fixed fixtures, production code confirmed correct
 - Narrowed [[open-technical-debt]] "Broaden unit coverage" → only LLM provider *call* paths remain
 - Branch: feature/2026-08-27-fetcher-utils-tests (per HAES branch-safety, awaits user merge)
+
+## [2026-08-29] update | HAES adds LLM provider fallback orchestration unit tests
+- Added `tests/unit/test_llm_fallback.py` — 17 deterministic, fully-mocked tests for the
+  6-provider resilience core in `modules/llm.py`: `call_with_fallback` (order/availability/quota
+  fall-through/all-fail→None), `call_openrouter`/`call_groq` (200/429/non-200 + endpoint
+  correctness), `call_nvidia` (200/404/429-retry/429-then-success). httpx faked, no SQLite.
+- Documented latent bug ([[open-technical-debt]] #7): `call_nvidia` swallows hard 404 inside its
+  own try/except → returns None instead of letting the fallback chain try the next provider.
+  Encoded as `xfail(strict=True)` so it flips to XPASS once fixed.
+- Gated `tests/unit/` suite: 104 → 121 tests (120 passed, 1 xfailed); ruff clean + pytest green
+  verified locally with exact CI commands per HAES CI hard rule.
+- Updated [[testing-strategy]] status + history; narrowed [[open-technical-debt]] (call-path item → formatter.py + #7 only); bumped [[llm-provider-fallback]].
+- Branch: feature/2026-08-27-fetcher-utils-tests (continuation; per HAES branch-safety, awaits user merge)
