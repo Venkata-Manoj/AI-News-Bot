@@ -2,7 +2,7 @@
 
 > Content catalog. Every wiki page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-08-21 | Total pages: 6
+> Last updated: 2026-08-29 | Total pages: 6 (gated unit suite 104 → 121 tests)
 
 ## Entities
 - [[ai-news-bot]] — The AI-News-Bot project: purpose, status, version, and maturity

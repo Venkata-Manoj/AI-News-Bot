@@ -26,6 +26,13 @@ provider outage or quota exhaustion never halts delivery. Order is configurable 
 
 ## Behavior
 - On 429 / quota / transport failure, `llm.py` auto-falls back to the next available provider.
+- `call_with_fallback` iterates `order`, skipping providers that are unavailable (no key) or
+  absent from `_providers`, and on any exception (incl. `QUOTA_EXCEEDED`) advances to the next
+  provider; returns `None` only when every provider fails or none are configured. Verified by
+  `tests/unit/test_llm_fallback.py` (2026-08-29).
+- `call_openrouter` / `call_groq` raise `QUOTA_EXCEEDED` on HTTP 429 and raise on any other
+  non-200; `call_nvidia` retries on 429 (exponential backoff via `asyncio.sleep`) and raises on
+  404 — **but see [[open-technical-debt]] #4**: 404 is currently swallowed inside its own loop.
 - `parse_response` performs multi-stage JSON repair (clean array → dict-with-list → markdown
   fence → array extraction → first-level repair → last-resort object) so malformed LLM output
   still yields structured articles. See [[testing-strategy]] for the test suite validating this.

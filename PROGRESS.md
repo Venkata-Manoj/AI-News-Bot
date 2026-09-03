@@ -108,4 +108,78 @@
 - [ ] Roll the same `wiki/` pattern out to data-analysis, transcribo, web-crawl, sketch-portfolio, portfolio, Capstone-Forage
 - [ ] Coverage reporting upload (Codecov/similar)
 - [ ] Docker image for easy deployment
-- [ ] Broaden unit coverage (fetcher.py, apify_fetcher.py, LLM provider call paths)
+- [x] Broaden unit coverage — `fetcher.py` + `apify_fetcher.py` pure logic (2026-08-27)
+- [ ] Broaden unit coverage — LLM provider *call* paths (live HTTP, harder to mock deterministically)
+
+## 2026-08-27 — Offline unit tests for fetcher/apify pure logic (CI-gated suite)
+
+### Completed
+- Added `tests/unit/test_fetcher_utils.py` — deterministic, network-free unit tests for the
+  previously-untested pure helpers in `modules/fetcher.py` and `modules/apify_fetcher.py`:
+  - `fetcher.strip_html` — empty/None → "", tag stripping, whitespace collapse
+  - `fetcher.normalise_url` — drops query/fragment, preserves scheme://netloc/path
+  - `fetcher.hash_url` — md5(normalise(url)); empty input → md5 of empty string (distinct from
+    `dedup.hash_url` which returns ""); deterministic; query/fragment-tolerant
+  - `fetcher.extract_rss_text` — summary → description → content fallback chain + 400-char cap
+  - `fetcher.Article` — URL normalisation + derived `url_hash` + default score/published
+  - `apify_fetcher.is_ai_related` — keyword membership, case-insensitive, empty/None/irrelevant → False
+- The `_Entry` fixture mirrors feedparser's AttributeError-on-missing-attr contract (critical: a
+  naive `getattr`-returns-None stub would silently break the `hasattr` branch chain).
+
+### Impact
+- **+32 new unit tests pass** (gated `tests/unit/` suite now 104 tests, was 72)
+- 3 tests initially failed — self-review showed all 3 were fixture bugs, not production bugs
+  (wrong assumption that `fetcher.hash_url("")` returns ""; `_Entry` returning None instead of
+  raising AttributeError). Production code was correct; fixtures fixed to match real behavior.
+- Closes the `fetcher.py` + `apify_fetcher.py` slice of the "Broaden unit coverage" roadmap item
+  (LLM provider *call* paths remain open)
+- Both CI jobs protected: `ruff check .` clean + `pytest tests/unit/` green, verified locally
+  before push. New file is auto-included by the `unit-test` job's `pytest tests/unit/` glob.
+- No production code changed — pure test addition, zero regression risk to the running bot
+
+### Remaining
+- [ ] Roll the same `wiki/` pattern out to data-analysis, transcribo, web-crawl, sketch-portfolio, portfolio, Capstone-Forge
+- [ ] Coverage reporting upload (Codecov/similar)
+- [ ] Docker image for easy deployment
+- [ ] Broaden unit coverage — LLM provider *call* paths (live HTTP, harder to mock deterministically)
+
+## 2026-08-29 — Offline unit tests for LLM provider fallback orchestration (CI-gated suite)
+
+### Completed
+- Added `tests/unit/test_llm_fallback.py` — deterministic, network-free unit tests for the
+  previously-untested **provider resilience core** of `modules/llm.py` (the 6-provider
+  failover that the prior `test_llm_parse.py` pure-path suite did not cover):
+  - `call_with_fallback` — first-available result returned; generic-exception fall-through;
+    QUOTA/429 error triggers next provider; unavailable provider skipped; unknown provider in
+    order skipped without error; falsy (`""`) result falls through; all-fail → `None`; no
+    providers → `None`
+  - `call_openrouter` / `call_groq` — 200 success returns `choices[].message.content`; 429 raises
+    `QUOTA_EXCEEDED`; non-200 raises; POSTs to the correctly configured provider endpoint
+  - `call_nvidia` — 200 success; 404 raises; 429 retries then returns `None`; 429-then-success
+    recovers. `httpx.AsyncClient` replaced with an in-memory fake; `increment_daily_calls`
+    stubbed → no SQLite side effects, fully CI-safe.
+- **Discovered a latent production bug** (documented, not fixed — this is a test-only PR):
+  `call_nvidia` raises the hard 404 *inside* its own `try/except` loop and swallows it,
+  returning `None`. Per the dispatch contract a 404 (model not found) should propagate so the
+  fallback chain tries the next provider. Encoded as `test_404_raises` with
+  `xfail(strict=True)` so it flips to XPASS once the production code stops swallowing 4xx.
+- All 4 `assert False` branches in "should-raise" tests replaced with `pytest.fail` (ruff B011);
+  imports sorted (ruff I001). `pytest` imported explicitly.
+- Suite validated locally with the exact CI commands (`ruff check .` clean +
+  `pytest tests/unit/ -q --cov=modules`): **120 passed, 1 xfailed** (gated `tests/unit/`
+  suite **104 → 121 tests**).
+
+### Impact
+- Closes the final slice of the "Broaden unit coverage" roadmap item — the LLM provider
+  *call/dispatch* paths, the only remaining ungated logic in `modules/llm.py` after the
+  2026-08-20/26/27 sessions. (`formatter.py` is the last untouched module.)
+- The 6-provider fallback chain — the bot's core resilience feature — now has direct
+  regression protection (order selection, quota fall-through, endpoint correctness).
+- Net: +17 tests on this branch (104 → 121); ruff clean; gated suite still fail-on-error.
+- No production code changed — pure test addition, zero regression risk to the running bot.
+
+### Remaining
+- [ ] Roll the same `wiki/` pattern out to data-analysis, transcribo, web-crawl, sketch-portfolio, portfolio, Capstone-Forge
+- [ ] Coverage reporting upload (Codecov/similar)
+- [ ] Docker image for easy deployment
+- [x] Broaden unit coverage — LLM provider *call* paths (2026-08-29; only `formatter.py` + the `call_nvidia` 404-swallow fix remain)
